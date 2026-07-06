@@ -17,7 +17,7 @@ from besen.const import (
 
 DOMAIN: Final = "besen"
 NAME: Final = "Besen"
-VERSION: Final = "0.3.0"
+VERSION: Final = "0.3.1"
 
 PLATFORMS: Final = [
     "sensor",

@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.3.1] - 2026-07-06
+
+### Changed
+
+- Replaced the PyPI-facing README with Python library usage and API documentation.
+- Moved the Home Assistant custom integration README content to `docs/home-assistant-custom-integration.md`.
+
 ## [0.3.0] - 2026-07-06
 
 ### Changed
