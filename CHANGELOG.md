@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.3.2] - 2026-07-06
+
+### Fixed
+
+- Replaced relative README links with absolute GitHub links so the PyPI project description does not point to missing `pypi.org/project/besen/...` pages.
+
 ## [0.3.1] - 2026-07-06
 
 ### Changed

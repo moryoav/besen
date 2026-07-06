@@ -163,7 +163,8 @@ start or stop the client.
 
 This package is the reusable Python communication library used by the Besen Home
 Assistant integration. Home Assistant user-facing setup and troubleshooting notes
-are kept separately in [docs/home-assistant-custom-integration.md](docs/home-assistant-custom-integration.md).
+are kept separately in
+[docs/home-assistant-custom-integration.md](https://github.com/moryoav/ha_besen/blob/main/docs/home-assistant-custom-integration.md).
 
 ## Safety
 
@@ -178,11 +179,12 @@ The Bluetooth protocol implementation is based on the MIT-licensed work in
 [slespersen/evseMQTT](https://github.com/slespersen/evseMQTT), with MQTT-specific
 runtime behavior replaced by a reusable async Python client.
 
-Additional attribution details are maintained in [NOTICE.md](NOTICE.md).
+Additional attribution details are maintained in
+[NOTICE.md](https://github.com/moryoav/ha_besen/blob/main/NOTICE.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/moryoav/ha_besen/blob/main/LICENSE).
 
 [release-badge]: https://img.shields.io/github/v/release/moryoav/ha_besen?style=flat-square
 [release-url]: https://github.com/moryoav/ha_besen/releases
