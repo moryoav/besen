@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: Integration version
-      description: The Besen BS20 integration version you are using.
+      description: The Besen integration version you are using.
       placeholder: "0.1.3"
     validations:
       required: true
@@ -48,7 +48,7 @@ body:
     attributes:
       label: Charger model or advertised name
       description: Include model, board revision, or advertised name if known. Do not include a private BLE address.
-      placeholder: "Besen BS20 / ACP#..."
+      placeholder: "Besen / ACP#..."
   - type: dropdown
     id: area
     attributes:

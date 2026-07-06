@@ -10,16 +10,16 @@ from bleak.backends.device import BLEDevice
 from homeassistant.const import CONF_ADDRESS, CONF_NAME, CONF_PIN
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
-from besen_bs20 import client as client_module
-from besen_bs20.exceptions import CannotConnect, InvalidAuth
-from custom_components.besen_bs20 import (
-    BesenBS20ConfigEntry,
+from besen import client as client_module
+from besen.exceptions import CannotConnect, InvalidAuth
+from custom_components.besen import (
+    BesenConfigEntry,
     async_setup_entry,
     async_unload_entry,
     repairs,
 )
-from custom_components.besen_bs20 import coordinator as coordinator_module
-from custom_components.besen_bs20.const import CONF_SYNC_CLOCK, PLATFORMS
+from custom_components.besen import coordinator as coordinator_module
+from custom_components.besen.const import CONF_SYNC_CLOCK, PLATFORMS
 
 
 class _FakeConfigEntries:
@@ -88,11 +88,11 @@ class _FakeCoordinator:
         self.shutdown = True
 
 
-def _entry() -> BesenBS20ConfigEntry:
+def _entry() -> BesenConfigEntry:
     """Return a fake config entry."""
 
     return cast(
-        BesenBS20ConfigEntry,
+        BesenConfigEntry,
         SimpleNamespace(
             entry_id="entry",
             data={
@@ -128,14 +128,14 @@ def _patch_setup_dependencies(
     """Patch setup dependencies and return repair calls."""
 
     repair_calls: list[tuple[str, str]] = []
-    monkeypatch.setattr(client_module, "BesenBS20Client", _FakeClient)
-    monkeypatch.setattr(coordinator_module, "BesenBS20Coordinator", _FakeCoordinator)
+    monkeypatch.setattr(client_module, "BesenClient", _FakeClient)
+    monkeypatch.setattr(coordinator_module, "BesenCoordinator", _FakeCoordinator)
     monkeypatch.setattr(
         _bluetooth_module(),
         "async_ble_device_from_address",
-        lambda *args, **kwargs: cast(BLEDevice, ble_device)
-        if ble_device is not None
-        else None,
+        lambda *args, **kwargs: (
+            cast(BLEDevice, ble_device) if ble_device is not None else None
+        ),
     )
     monkeypatch.setattr(
         _bluetooth_module(),

@@ -1,4 +1,4 @@
-"""Besen BS20 Home Assistant integration."""
+"""Besen Home Assistant integration."""
 
 from __future__ import annotations
 
@@ -13,41 +13,41 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
-    from besen_bs20.client import BesenBS20Client
+    from besen.client import BesenClient
 
-    from .coordinator import BesenBS20Coordinator
+    from .coordinator import BesenCoordinator
 
 
 @dataclass(slots=True)
-class BesenBS20RuntimeData:
-    """Runtime data for a Besen BS20 config entry."""
+class BesenRuntimeData:
+    """Runtime data for a Besen config entry."""
 
-    client: BesenBS20Client
-    coordinator: BesenBS20Coordinator
+    client: BesenClient
+    coordinator: BesenCoordinator
 
 
 if TYPE_CHECKING:
-    type BesenBS20ConfigEntry = ConfigEntry[BesenBS20RuntimeData]
+    type BesenConfigEntry = ConfigEntry[BesenRuntimeData]
 else:
-    BesenBS20ConfigEntry = object
+    BesenConfigEntry = object
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: BesenBS20ConfigEntry,
+    entry: BesenConfigEntry,
 ) -> bool:
-    """Set up Besen BS20 from a config entry."""
+    """Set up Besen from a config entry."""
 
     from homeassistant.components import bluetooth
     from homeassistant.const import CONF_ADDRESS, CONF_NAME, CONF_PIN
     from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
-    from besen_bs20.client import BesenBS20Client
-    from besen_bs20.exceptions import CannotConnect, InvalidAuth
+    from besen.client import BesenClient
+    from besen.exceptions import CannotConnect, InvalidAuth
 
-    from .coordinator import BesenBS20Coordinator
+    from .coordinator import BesenCoordinator
     from .repairs import (
         async_create_no_connectable_path_issue,
         async_create_reauth_issue,
@@ -86,7 +86,7 @@ async def async_setup_entry(
             reason = diagnostics(hass, address, intent)
         raise ConfigEntryNotReady(reason)
 
-    client = BesenBS20Client(
+    client = BesenClient(
         address=address,
         pin=pin,
         ble_device_provider=_ble_device_provider,
@@ -94,7 +94,7 @@ async def async_setup_entry(
         advertised_name=entry.data.get(CONF_NAME),
         sync_clock=sync_clock,
     )
-    coordinator = BesenBS20Coordinator(hass, client)
+    coordinator = BesenCoordinator(hass, client)
 
     try:
         await coordinator.async_start()
@@ -107,16 +107,16 @@ async def async_setup_entry(
 
     async_delete_no_connectable_path_issue(hass, entry.entry_id)
     async_delete_reauth_issue(hass, entry.entry_id)
-    entry.runtime_data = BesenBS20RuntimeData(client=client, coordinator=coordinator)
+    entry.runtime_data = BesenRuntimeData(client=client, coordinator=coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
 async def async_unload_entry(
     hass: HomeAssistant,
-    entry: BesenBS20ConfigEntry,
+    entry: BesenConfigEntry,
 ) -> bool:
-    """Unload a Besen BS20 config entry."""
+    """Unload a Besen config entry."""
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:

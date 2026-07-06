@@ -1,11 +1,11 @@
-"""Exceptions raised by the Besen BS20 integration."""
+"""Exceptions raised by the Besen integration."""
 
 
-class BesenBS20Error(Exception):
-    """Base class for Besen BS20 errors."""
+class BesenError(Exception):
+    """Base class for Besen errors."""
 
 
-class CannotConnect(BesenBS20Error):
+class CannotConnect(BesenError):
     """Raised when the charger cannot be reached."""
 
 
@@ -13,13 +13,13 @@ class NoConnectablePath(CannotConnect):
     """Raised when Home Assistant has no active Bluetooth path to the charger."""
 
 
-class InvalidAuth(BesenBS20Error):
+class InvalidAuth(BesenError):
     """Raised when the charger rejects the PIN."""
 
 
-class ProtocolError(BesenBS20Error):
+class ProtocolError(BesenError):
     """Raised when charger data is malformed."""
 
 
-class CommandFailed(BesenBS20Error):
+class CommandFailed(BesenError):
     """Raised when a charger command fails."""

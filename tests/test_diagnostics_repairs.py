@@ -8,23 +8,23 @@ from typing import Any, cast
 import pytest
 from homeassistant.helpers import issue_registry as ir
 
-from besen_bs20.models import BesenBS20Data, ChargerInfo
-from custom_components.besen_bs20 import BesenBS20ConfigEntry, repairs
-from custom_components.besen_bs20.const import DOMAIN
-from custom_components.besen_bs20.diagnostics import async_get_config_entry_diagnostics
+from besen.models import BesenData, ChargerInfo
+from custom_components.besen import BesenConfigEntry, repairs
+from custom_components.besen.const import DOMAIN
+from custom_components.besen.diagnostics import async_get_config_entry_diagnostics
 
 
-def _diagnostics_entry() -> BesenBS20ConfigEntry:
+def _diagnostics_entry() -> BesenConfigEntry:
     """Return a fake config entry for diagnostics."""
 
-    state = BesenBS20Data(
+    state = BesenData(
         info=ChargerInfo(address="AA:BB", serial="SERIAL"),
         available=True,
         authenticated=True,
     )
     coordinator = SimpleNamespace(data=state, client=SimpleNamespace(state=state))
     return cast(
-        BesenBS20ConfigEntry,
+        BesenConfigEntry,
         SimpleNamespace(
             data={"address": "AA:BB", "pin": "123456"},
             options={"sync_clock": True},

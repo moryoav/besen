@@ -1,4 +1,4 @@
-"""Repair issue helpers for Besen BS20."""
+"""Repair issue helpers for Besen."""
 
 from __future__ import annotations
 
@@ -50,4 +50,3 @@ def async_delete_reauth_issue(hass: HomeAssistant, entry_id: str) -> None:
     """Delete the invalid PIN repair issue."""
 
     ir.async_delete_issue(hass, DOMAIN, f"{entry_id}_reauth_required")
-

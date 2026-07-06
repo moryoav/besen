@@ -2,7 +2,7 @@
 
 ## Our Pledge
 
-We want Besen BS20 for Home Assistant to be a welcoming project for people
+We want Besen for Home Assistant to be a welcoming project for people
 with different backgrounds, skill levels, electrical setups, and Home Assistant
 installations.
 

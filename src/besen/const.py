@@ -1,4 +1,4 @@
-"""Constants for the Besen BS20 client library."""
+"""Constants for the Besen client library."""
 
 from typing import Final
 

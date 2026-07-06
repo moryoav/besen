@@ -1,4 +1,4 @@
-"""Tests for Besen BS20 config flow."""
+"""Tests for Besen config flow."""
 
 from __future__ import annotations
 
@@ -12,15 +12,15 @@ from homeassistant.config_entries import SOURCE_RECONFIGURE
 from homeassistant.const import CONF_ADDRESS, CONF_NAME, CONF_PIN
 from homeassistant.data_entry_flow import FlowResultType
 
-from besen_bs20.exceptions import (
+from besen.exceptions import (
     CannotConnect,
     InvalidAuth,
     NoConnectablePath,
 )
-from besen_bs20.models import BesenBS20Data, ChargerInfo
-from custom_components.besen_bs20 import config_flow
-from custom_components.besen_bs20.config_flow import BesenBS20ConfigFlow
-from custom_components.besen_bs20.const import CONF_SYNC_CLOCK
+from besen.models import BesenData, ChargerInfo
+from custom_components.besen import config_flow
+from custom_components.besen.config_flow import BesenConfigFlow
+from custom_components.besen.const import CONF_SYNC_CLOCK
 
 
 class _FakeConfigEntries:
@@ -68,7 +68,7 @@ class _FakeValidationClient:
         """Initialize the fake client."""
 
         del args, kwargs
-        self.state = BesenBS20Data(info=ChargerInfo(address="AA:BB", model="BS20"))
+        self.state = BesenData(info=ChargerInfo(address="AA:BB", model="BS20"))
         self.started = False
         self.stopped = False
 
@@ -83,10 +83,10 @@ class _FakeValidationClient:
         self.stopped = True
 
 
-def _flow() -> BesenBS20ConfigFlow:
+def _flow() -> BesenConfigFlow:
     """Return a config flow with a fake hass object."""
 
-    flow = BesenBS20ConfigFlow()
+    flow = BesenConfigFlow()
     cast(Any, flow).hass = SimpleNamespace()
     cast(Any, flow).context = {}
     return flow
@@ -111,6 +111,7 @@ def _entry() -> SimpleNamespace:
         entry_id="entry",
         data={CONF_ADDRESS: "AA:BB", CONF_NAME: "ACP#Garage", CONF_PIN: "123456"},
         options={CONF_SYNC_CLOCK: True},
+        update_listeners=(),
     )
 
 
@@ -149,7 +150,7 @@ async def test_validate_input_success_and_errors(
 ) -> None:
     """Validation logs into the charger and reports setup errors."""
 
-    monkeypatch.setattr(config_flow, "BesenBS20Client", _FakeValidationClient)
+    monkeypatch.setattr(config_flow, "BesenClient", _FakeValidationClient)
     monkeypatch.setattr(
         _bluetooth_module(),
         "async_ble_device_from_address",
@@ -306,9 +307,7 @@ async def test_user_step_success_and_error(monkeypatch: pytest.MonkeyPatch) -> N
             "_async_validate_input",
             _validation_raiser(exception),
         )
-        result = await flow.async_step_user(
-            {CONF_ADDRESS: "AA:BB", CONF_PIN: "123456"}
-        )
+        result = await flow.async_step_user({CONF_ADDRESS: "AA:BB", CONF_PIN: "123456"})
         assert result["errors"] == {"base": error}
 
 

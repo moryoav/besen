@@ -1,4 +1,4 @@
-"""Tests for Besen BS20 Home Assistant entities."""
+"""Tests for Besen Home Assistant entities."""
 
 from __future__ import annotations
 
@@ -9,43 +9,43 @@ from typing import Any, cast
 import pytest
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from besen_bs20.models import (
-    BesenBS20Data,
+from besen.models import (
+    BesenData,
     ChargerConfig,
     ChargerInfo,
     ChargeStatus,
 )
-from custom_components.besen_bs20 import (
-    BesenBS20ConfigEntry,
+from custom_components.besen import (
+    BesenConfigEntry,
 )
-from custom_components.besen_bs20 import (
+from custom_components.besen import (
     number as number_platform,
 )
-from custom_components.besen_bs20 import (
+from custom_components.besen import (
     select as select_platform,
 )
-from custom_components.besen_bs20 import (
+from custom_components.besen import (
     sensor as sensor_platform,
 )
-from custom_components.besen_bs20 import (
+from custom_components.besen import (
     switch as switch_platform,
 )
-from custom_components.besen_bs20 import (
+from custom_components.besen import (
     text as text_platform,
 )
-from custom_components.besen_bs20.coordinator import BesenBS20Coordinator
-from custom_components.besen_bs20.entity import BesenBS20Entity
-from custom_components.besen_bs20.number import NUMBERS, BesenBS20Number
-from custom_components.besen_bs20.select import SELECTS, BesenBS20Select
-from custom_components.besen_bs20.sensor import SENSORS, BesenBS20Sensor
-from custom_components.besen_bs20.switch import BesenBS20ChargeSwitch
-from custom_components.besen_bs20.text import BesenBS20NameText
+from custom_components.besen.coordinator import BesenCoordinator
+from custom_components.besen.entity import BesenEntity
+from custom_components.besen.number import NUMBERS, BesenNumber
+from custom_components.besen.select import SELECTS, BesenSelect
+from custom_components.besen.sensor import SENSORS, BesenSensor
+from custom_components.besen.switch import BesenChargeSwitch
+from custom_components.besen.text import BesenNameText
 
 
 class _FakeClient:
     """Fake client exposed by a coordinator."""
 
-    def __init__(self, state: BesenBS20Data) -> None:
+    def __init__(self, state: BesenData) -> None:
         """Initialize the fake client."""
 
         self.address = state.info.address
@@ -55,10 +55,10 @@ class _FakeClient:
 class _FakeCoordinator:
     """Fake coordinator with command methods used by entities."""
 
-    def __init__(self, data: BesenBS20Data | None) -> None:
+    def __init__(self, data: BesenData | None) -> None:
         """Initialize the fake coordinator."""
 
-        fallback = data or BesenBS20Data(info=ChargerInfo(address="AA:BB"))
+        fallback = data or BesenData(info=ChargerInfo(address="AA:BB"))
         self.data = data
         self.client = _FakeClient(fallback)
         self.calls: list[tuple[str, object | None]] = []
@@ -99,10 +99,10 @@ class _FakeCoordinator:
         self.calls.append(("device_name", name))
 
 
-def _state(*, phases: int = 3) -> BesenBS20Data:
+def _state(*, phases: int = 3) -> BesenData:
     """Return a populated available charger state."""
 
-    return BesenBS20Data(
+    return BesenData(
         info=ChargerInfo(
             address="AA:BB",
             serial="SERIAL",
@@ -139,17 +139,17 @@ def _state(*, phases: int = 3) -> BesenBS20Data:
     )
 
 
-def _coordinator(data: BesenBS20Data | None = None) -> BesenBS20Coordinator:
+def _coordinator(data: BesenData | None = None) -> BesenCoordinator:
     """Return a fake coordinator cast to the integration coordinator type."""
 
-    return cast(BesenBS20Coordinator, _FakeCoordinator(data))
+    return cast(BesenCoordinator, _FakeCoordinator(data))
 
 
-def _entry(coordinator: BesenBS20Coordinator) -> BesenBS20ConfigEntry:
+def _entry(coordinator: BesenCoordinator) -> BesenConfigEntry:
     """Return a fake config entry with runtime data."""
 
     return cast(
-        BesenBS20ConfigEntry,
+        BesenConfigEntry,
         SimpleNamespace(runtime_data=SimpleNamespace(coordinator=coordinator)),
     )
 
@@ -167,7 +167,7 @@ _ADDED: list[Any] = []
 def test_base_entity_device_info_and_availability() -> None:
     """Base entities expose device info and availability."""
 
-    entity = BesenBS20Entity(_coordinator(_state()), "base")
+    entity = BesenEntity(_coordinator(_state()), "base")
 
     assert entity.available is True
     assert entity.unique_id == "AA:BB_base"
@@ -196,9 +196,9 @@ def test_sensor_values_options_and_availability() -> None:
     """Sensors expose values, enum options, and unavailable missing data."""
 
     coordinator = _coordinator(_state())
-    power = BesenBS20Sensor(coordinator, SENSORS[0])
-    error = BesenBS20Sensor(coordinator, SENSORS[11])
-    missing = BesenBS20Sensor(_coordinator(None), SENSORS[0])
+    power = BesenSensor(coordinator, SENSORS[0])
+    error = BesenSensor(coordinator, SENSORS[11])
+    missing = BesenSensor(_coordinator(None), SENSORS[0])
 
     assert power.native_value == 3500
     assert power.available is True
@@ -211,8 +211,8 @@ async def test_number_entities_expose_values_and_set_commands() -> None:
     """Number entities read values and dispatch coordinator commands."""
 
     coordinator = _coordinator(_state())
-    charge_amps = BesenBS20Number(coordinator, NUMBERS[0])
-    brightness = BesenBS20Number(coordinator, NUMBERS[1])
+    charge_amps = BesenNumber(coordinator, NUMBERS[0])
+    brightness = BesenNumber(coordinator, NUMBERS[1])
 
     assert charge_amps.native_value == 16
     assert charge_amps.native_max_value == 32
@@ -229,10 +229,10 @@ async def test_select_text_and_switch_entities_dispatch_commands() -> None:
     """Select, text, and switch entities dispatch coordinator commands."""
 
     coordinator = _coordinator(_state())
-    language = BesenBS20Select(coordinator, SELECTS[0])
-    temperature = BesenBS20Select(coordinator, SELECTS[1])
-    name = BesenBS20NameText(coordinator)
-    charge = BesenBS20ChargeSwitch(coordinator)
+    language = BesenSelect(coordinator, SELECTS[0])
+    temperature = BesenSelect(coordinator, SELECTS[1])
+    name = BesenNameText(coordinator)
+    charge = BesenChargeSwitch(coordinator)
 
     assert language.current_option == "English"
     assert "English" in language.options
@@ -272,10 +272,10 @@ async def test_platform_setup_adds_control_entities() -> None:
     await text_platform.async_setup_entry(cast(Any, object()), entry, add_entities)
 
     assert [type(entity) for entity in _ADDED] == [
-        BesenBS20Number,
-        BesenBS20Number,
-        BesenBS20Select,
-        BesenBS20Select,
-        BesenBS20ChargeSwitch,
-        BesenBS20NameText,
+        BesenNumber,
+        BesenNumber,
+        BesenSelect,
+        BesenSelect,
+        BesenChargeSwitch,
+        BesenNameText,
     ]

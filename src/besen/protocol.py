@@ -1,4 +1,4 @@
-"""Besen BS20 BLE packet protocol helpers.
+"""Besen BLE packet protocol helpers.
 
 The packet format and field offsets are derived from the MIT-licensed
 evseMQTT project by slespersen and contributors.

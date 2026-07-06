@@ -30,7 +30,7 @@ Describe the testing you performed.
 - [ ] HACS Action passes.
 - [ ] Hassfest passes.
 - [ ] Home Assistant loads or restarts without relevant errors.
-- [ ] The `besen_bs20` integration can be set up or reloaded when affected.
+- [ ] The `besen` integration can be set up or reloaded when affected.
 - [ ] Relevant BLE connection, entity, or UI flows were tested.
 - [ ] Documentation-only change; no runtime testing needed.
 

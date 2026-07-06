@@ -1,4 +1,4 @@
-"""Data models for Besen BS20 chargers."""
+"""Data models for Besen chargers."""
 
 from __future__ import annotations
 
@@ -111,7 +111,7 @@ class CommandResult:
 
 
 @dataclass(slots=True, frozen=True)
-class BesenBS20Data:
+class BesenData:
     """State object exposed to Home Assistant entities."""
 
     info: ChargerInfo
@@ -122,8 +122,7 @@ class BesenBS20Data:
     last_command: CommandResult | None = None
     last_error: str | None = None
 
-    def updated(self, **changes: Any) -> BesenBS20Data:
+    def updated(self, **changes: Any) -> BesenData:
         """Return a copy with changed fields."""
 
         return replace(self, **changes)
-

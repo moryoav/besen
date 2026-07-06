@@ -1,4 +1,4 @@
-"""Sensor platform for Besen BS20."""
+"""Sensor platform for Besen."""
 
 from __future__ import annotations
 
@@ -24,9 +24,9 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from besen_bs20.models import BesenBS20Data
+from besen.models import BesenData
 
-from . import BesenBS20ConfigEntry
+from . import BesenConfigEntry
 from .const import (
     CHARGING_STATUS,
     CHARGING_STATUS_DESCRIPTIONS,
@@ -35,12 +35,12 @@ from .const import (
     OUTPUT_STATE,
     PLUG_STATE,
 )
-from .coordinator import BesenBS20Coordinator
-from .entity import BesenBS20Entity
+from .coordinator import BesenCoordinator
+from .entity import BesenEntity
 
 PARALLEL_UPDATES = 0
 
-SensorValue = Callable[[BesenBS20Data], Any]
+SensorValue = Callable[[BesenData], Any]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -224,15 +224,15 @@ SENSORS: tuple[BesenSensorEntityDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: BesenBS20ConfigEntry,
+    entry: BesenConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Besen BS20 sensors."""
+    """Set up Besen sensors."""
 
     coordinator = entry.runtime_data.coordinator
     data = coordinator.data or coordinator.client.state
     sensors = [
-        BesenBS20Sensor(coordinator, description)
+        BesenSensor(coordinator, description)
         for description in SENSORS
         if data.info.phases == 3
         or description.key
@@ -241,14 +241,14 @@ async def async_setup_entry(
     async_add_entities(sensors)
 
 
-class BesenBS20Sensor(BesenBS20Entity, SensorEntity):
-    """Besen BS20 sensor."""
+class BesenSensor(BesenEntity, SensorEntity):
+    """Besen sensor."""
 
     entity_description: BesenSensorEntityDescription
 
     def __init__(
         self,
-        coordinator: BesenBS20Coordinator,
+        coordinator: BesenCoordinator,
         description: BesenSensorEntityDescription,
     ) -> None:
         """Initialize the sensor."""

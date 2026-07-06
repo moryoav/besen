@@ -1,9 +1,9 @@
 {
-  "title": "Besen BS20",
+  "title": "Besen",
   "config": {
     "step": {
       "user": {
-        "title": "Set up Besen BS20",
+        "title": "Set up Besen",
         "description": "Enter the Bluetooth address and PIN for your charger.",
         "data": {
           "address": "Bluetooth address",
@@ -29,14 +29,14 @@
         }
       },
       "reauth_confirm": {
-        "title": "Update Besen BS20 PIN",
+        "title": "Update Besen PIN",
         "description": "The charger rejected the configured PIN. Enter the current 6-digit PIN.",
         "data": {
           "pin": "PIN"
         }
       },
       "reconfigure": {
-        "title": "Reconfigure Besen BS20",
+        "title": "Reconfigure Besen",
         "data": {
           "pin": "PIN",
           "sync_clock": "Sync charger clock"
@@ -102,7 +102,7 @@
       "description": "The charger is visible, but Home Assistant cannot reach it through an adapter or Bluetooth proxy that supports active GATT connections. Move an active ESPHome Bluetooth proxy closer to the charger or add a supported Bluetooth adapter."
     },
     "reauth_required": {
-      "title": "Besen BS20 PIN rejected",
+      "title": "Besen PIN rejected",
       "description": "The charger rejected the configured PIN. Reauthenticate the integration with the current 6-digit PIN."
     }
   }

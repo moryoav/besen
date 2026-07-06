@@ -1,17 +1,18 @@
-"""Tests for the Besen BS20 BLE client."""
+"""Tests for the Besen BLE client."""
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from itertools import chain, repeat
 from typing import Any, cast
 
 import pytest
 from bleak.backends.device import BLEDevice
 
-from besen_bs20 import client as client_module
-from besen_bs20.client import BesenBS20Client
-from besen_bs20.const import (
+from besen import client as client_module
+from besen.client import BesenClient
+from besen.const import (
     NEW_BOARD_READ_UUID,
     NEW_BOARD_SERVICE_PREFIXES,
     NEW_BOARD_WRITE_UUID,
@@ -21,14 +22,14 @@ from besen_bs20.const import (
     REV_WRITE_UUID,
     WRITE_UUID,
 )
-from besen_bs20.exceptions import (
+from besen.exceptions import (
     CannotConnect,
     CommandFailed,
     InvalidAuth,
     ProtocolError,
 )
-from besen_bs20.models import BoardRevision, CharacteristicPair
-from besen_bs20.protocol import PARSERS, build_command
+from besen.models import BoardRevision, CharacteristicPair
+from besen.protocol import PARSERS, build_command
 
 
 class _Service:
@@ -126,14 +127,14 @@ def _login_packets() -> list[bytes]:
 def _client(
     fake_client: _FakeBleakClient,
     monkeypatch: pytest.MonkeyPatch,
-) -> BesenBS20Client:
+) -> BesenClient:
     """Create a client wired to fake BLE dependencies."""
 
     async def _establish_connection(*args: Any, **kwargs: Any) -> _FakeBleakClient:
         return fake_client
 
     monkeypatch.setattr(client_module, "establish_connection", _establish_connection)
-    return BesenBS20Client(
+    return BesenClient(
         address="AA:BB:CC:DD:EE:FF",
         pin="123456",
         ble_device_provider=lambda: cast(BLEDevice, _BleDevice()),
@@ -149,8 +150,8 @@ def test_unavailable_warning_is_rate_limited(
     """Repeated unavailable warnings are throttled."""
 
     client = _client(_FakeBleakClient([]), monkeypatch)
-    times = iter([100.0, 200.0, 701.0])
-    monkeypatch.setattr("besen_bs20.client.time.monotonic", lambda: next(times))
+    times = chain([100.0, 200.0, 701.0], repeat(701.0))
+    monkeypatch.setattr("besen.client.time.monotonic", lambda: next(times))
 
     with caplog.at_level(logging.WARNING):
         client._log_unavailable_warning("watchdog timeout")
@@ -268,7 +269,7 @@ async def test_client_raises_invalid_auth(monkeypatch: pytest.MonkeyPatch) -> No
 async def test_client_raises_when_ble_device_missing() -> None:
     """Missing connectable Bluetooth devices fail before connecting."""
 
-    client = BesenBS20Client(
+    client = BesenClient(
         address="AA:BB:CC:DD:EE:FF",
         pin="123456",
         ble_device_provider=lambda: None,
@@ -402,7 +403,7 @@ async def test_client_disconnect_notification_and_send_preconditions(
     assert client.state.available is False
     assert client.state.last_error == "Bluetooth connection lost"
 
-    disconnected = BesenBS20Client(
+    disconnected = BesenClient(
         address="AA:BB:CC:DD:EE:FF",
         pin="123456",
         ble_device_provider=lambda: cast(BLEDevice, _BleDevice()),

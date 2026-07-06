@@ -1,4 +1,4 @@
-"""Async BLE client for Besen BS20 chargers."""
+"""Async BLE client for Besen chargers."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ from .const import (
 )
 from .exceptions import CannotConnect, CommandFailed, InvalidAuth, ProtocolError
 from .models import (
-    BesenBS20Data,
+    BesenData,
     BoardRevision,
     CharacteristicPair,
     ChargerInfo,
@@ -52,14 +52,14 @@ from .protocol import (
 )
 
 BLEDeviceProvider = Callable[[], BLEDevice | None]
-StateListener = Callable[[BesenBS20Data], None]
+StateListener = Callable[[BesenData], None]
 
 USER_ID = [101, 118, 115, 101, 77, 81, 84, 84, 0, 0, 0, 0, 0, 0, 0, 0]
 UNAVAILABLE_LOG_INTERVAL_SECONDS = 600
 
 
-class BesenBS20Client:
-    """Manage a Besen BS20 charger BLE connection."""
+class BesenClient:
+    """Manage a Besen charger BLE connection."""
 
     def __init__(
         self,
@@ -91,12 +91,12 @@ class BesenBS20Client:
         self._auth_failed = False
         self._last_message = time.monotonic()
         self._last_unavailable_log: float | None = None
-        self._state = BesenBS20Data(
+        self._state = BesenData(
             info=ChargerInfo(address=address, advertised_name=advertised_name)
         )
 
     @property
-    def state(self) -> BesenBS20Data:
+    def state(self) -> BesenData:
         """Return the latest charger state."""
 
         return self._state
@@ -260,7 +260,7 @@ class BesenBS20Client:
 
         await self._disconnect_client()
         self._assembler = PacketAssembler()
-        self._logger.debug("Connecting to Besen BS20 at %s", self.address)
+        self._logger.debug("Connecting to Besen at %s", self.address)
         try:
             self._client = await establish_connection(
                 BleakClientWithServiceCache,
@@ -276,7 +276,7 @@ class BesenBS20Client:
             )
             self._characteristics = self._select_characteristics()
             self._logger.debug(
-                "Selected Besen BS20 %s board characteristics read=%s write=%s",
+                "Selected Besen %s board characteristics read=%s write=%s",
                 self._characteristics.board_revision.value,
                 self._characteristics.read_uuid,
                 self._characteristics.write_uuid,
@@ -316,17 +316,13 @@ class BesenBS20Client:
 
         assert self._client is not None
         service_uuids = [service.uuid.lower() for service in self._client.services]
-        if any(
-            uuid.startswith(NEW_BOARD_SERVICE_PREFIXES) for uuid in service_uuids
-        ):
+        if any(uuid.startswith(NEW_BOARD_SERVICE_PREFIXES) for uuid in service_uuids):
             return CharacteristicPair(
                 read_uuid=NEW_BOARD_READ_UUID,
                 write_uuid=NEW_BOARD_WRITE_UUID,
                 board_revision=BoardRevision.NEW,
             )
-        if any(
-            uuid.startswith(REV_BOARD_SERVICE_PREFIXES) for uuid in service_uuids
-        ):
+        if any(uuid.startswith(REV_BOARD_SERVICE_PREFIXES) for uuid in service_uuids):
             return CharacteristicPair(
                 read_uuid=REV_READ_UUID,
                 write_uuid=REV_WRITE_UUID,
@@ -560,7 +556,7 @@ class BesenBS20Client:
             if time.monotonic() - self._last_message <= MESSAGE_TIMEOUT:
                 continue
             self._log_unavailable_warning(
-                "No Besen BS20 notification received for %s seconds; reconnecting",
+                "No Besen notification received for %s seconds; reconnecting",
                 MESSAGE_TIMEOUT,
             )
             self._set_state(
@@ -588,12 +584,12 @@ class BesenBS20Client:
             try:
                 await self._connect_and_login()
             except InvalidAuth:
-                self._logger.error("Besen BS20 PIN rejected during reconnect")
+                self._logger.error("Besen PIN rejected during reconnect")
                 return
             except CannotConnect as err:
-                self._logger.debug("Besen BS20 reconnect failed: %s", err)
+                self._logger.debug("Besen reconnect failed: %s", err)
             else:
-                self._logger.info("Besen BS20 reconnected")
+                self._logger.info("Besen reconnected")
                 return
             finally:
                 self._reconnecting = False

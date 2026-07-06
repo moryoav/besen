@@ -1,4 +1,4 @@
-"""Base entities for Besen BS20."""
+"""Base entities for Besen."""
 
 from __future__ import annotations
 
@@ -7,17 +7,17 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, NAME
-from .coordinator import BesenBS20Coordinator
+from .coordinator import BesenCoordinator
 
 
-class BesenBS20Entity(CoordinatorEntity[BesenBS20Coordinator]):
-    """Base class for Besen BS20 entities."""
+class BesenEntity(CoordinatorEntity[BesenCoordinator]):
+    """Base class for Besen entities."""
 
     _attr_has_entity_name = True
 
     def __init__(
         self,
-        coordinator: BesenBS20Coordinator,
+        coordinator: BesenCoordinator,
         key: str,
         name: str | None = None,
     ) -> None:
@@ -36,12 +36,7 @@ class BesenBS20Entity(CoordinatorEntity[BesenBS20Coordinator]):
 
         data = self.coordinator.data or self.coordinator.client.state
         info = data.info
-        name = (
-            data.config.device_name
-            or info.advertised_name
-            or info.model
-            or NAME
-        )
+        name = data.config.device_name or info.advertised_name or info.model or NAME
         return DeviceInfo(
             identifiers={(DOMAIN, info.address)},
             connections={(dr.CONNECTION_BLUETOOTH, info.address)},

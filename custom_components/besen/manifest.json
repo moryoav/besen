@@ -1,6 +1,6 @@
 {
-  "domain": "besen_bs20",
-  "name": "Besen BS20",
+  "domain": "besen",
+  "name": "Besen",
   "bluetooth": [
     {
       "local_name": "ACP#*",
@@ -10,10 +10,10 @@
   "codeowners": ["@moryoav"],
   "config_flow": true,
   "dependencies": ["bluetooth_adapters"],
-  "documentation": "https://github.com/moryoav/ha_besen-bs20",
+  "documentation": "https://github.com/moryoav/ha_besen",
   "integration_type": "device",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/moryoav/ha_besen-bs20/issues",
-  "requirements": ["besen-bs20==0.2.2"],
-  "version": "0.2.2"
+  "issue_tracker": "https://github.com/moryoav/ha_besen/issues",
+  "requirements": ["besen==0.3.0"],
+  "version": "0.3.0"
 }

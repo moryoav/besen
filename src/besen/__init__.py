@@ -1,10 +1,10 @@
-"""Async Python client for Besen BS20 EV chargers."""
+"""Async Python client for Besen EV chargers."""
 
 from __future__ import annotations
 
-from .client import BesenBS20Client
+from .client import BesenClient
 from .exceptions import (
-    BesenBS20Error,
+    BesenError,
     CannotConnect,
     CommandFailed,
     InvalidAuth,
@@ -12,7 +12,7 @@ from .exceptions import (
     ProtocolError,
 )
 from .models import (
-    BesenBS20Data,
+    BesenData,
     BoardRevision,
     CharacteristicPair,
     ChargerConfig,
@@ -21,12 +21,12 @@ from .models import (
     CommandResult,
 )
 
-__version__ = "0.2.2"
+__version__ = "0.3.0"
 
 __all__ = [
-    "BesenBS20Client",
-    "BesenBS20Data",
-    "BesenBS20Error",
+    "BesenClient",
+    "BesenData",
+    "BesenError",
     "BoardRevision",
     "CannotConnect",
     "CharacteristicPair",

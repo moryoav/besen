@@ -1,10 +1,10 @@
-# Contributing to Besen BS20 for Home Assistant
+# Contributing to Besen for Home Assistant
 
-Thanks for your interest in improving Besen BS20 for Home Assistant.
+Thanks for your interest in improving Besen for Home Assistant.
 
 This repository contains one Home Assistant custom integration:
 
-- `custom_components/besen_bs20`: the Besen BS20 integration, BLE protocol
+- `custom_components/besen`: the Besen integration, BLE protocol
   client, config flow, entities, diagnostics, repairs, translations, and brand
   assets.
 
@@ -24,7 +24,7 @@ straight to a pull request.
 
 When reporting a bug, please include:
 
-- The Besen BS20 integration version you are using.
+- The Besen integration version you are using.
 - Your Home Assistant version.
 - Whether you installed through HACS, manually, or from the development branch.
 - Your charger model or advertised BLE name, if known.
@@ -58,8 +58,8 @@ clear failure behavior and should not bypass electrical safety protections.
 Clone the repository:
 
 ```bash
-git clone https://github.com/moryoav/ha_besen-bs20.git
-cd ha_besen-bs20
+git clone https://github.com/moryoav/ha_besen.git
+cd ha_besen
 ```
 
 Install development dependencies:
@@ -71,7 +71,7 @@ python -m pip install -e ".[dev]"
 The repository layout is:
 
 ```text
-custom_components/besen_bs20/  Home Assistant custom integration
+custom_components/besen/  Home Assistant custom integration
 tests/                         Lightweight local tests
 .github/workflows/             CI, HACS, Hassfest, and release workflows
 ```
@@ -79,11 +79,11 @@ tests/                         Lightweight local tests
 For local Home Assistant testing, copy the integration into:
 
 ```text
-/config/custom_components/besen_bs20
+/config/custom_components/besen
 ```
 
 Restart Home Assistant and add the integration from **Settings** -> **Devices &
-services** -> **Add integration** -> **Besen BS20**. For BLE proxy testing, make
+services** -> **Add integration** -> **Besen**. For BLE proxy testing, make
 sure the ESPHome Bluetooth proxy supports active connections and is close enough
 to the charger.
 
@@ -103,8 +103,8 @@ Please keep pull requests focused. A good pull request should:
 If you change the integration version, update these files consistently:
 
 - `pyproject.toml`
-- `custom_components/besen_bs20/manifest.json`
-- `custom_components/besen_bs20/const.py`
+- `custom_components/besen/manifest.json`
+- `custom_components/besen/const.py`
 - `CHANGELOG.md`
 
 ## Testing
@@ -121,7 +121,7 @@ python -m compileall custom_components tests
 
 For integration changes, verify that Home Assistant can:
 
-- Load the `besen_bs20` integration.
+- Load the `besen` integration.
 - Complete the config flow or discovery flow.
 - Connect to the charger through the intended Bluetooth path.
 - Create and update the expected entities.
@@ -163,8 +163,8 @@ Depending on the change, this may include:
 
 - `README.md`
 - `CHANGELOG.md`
-- `custom_components/besen_bs20/strings.json`
-- `custom_components/besen_bs20/quality_scale.yaml`
+- `custom_components/besen/strings.json`
+- `custom_components/besen/quality_scale.yaml`
 
 Use plain, direct language and include Home Assistant examples where they make
 the workflow easier to understand.
@@ -174,7 +174,7 @@ the workflow easier to understand.
 Stable users should use the default repository URL:
 
 ```text
-https://github.com/moryoav/ha_besen-bs20
+https://github.com/moryoav/ha_besen
 ```
 
 Published GitHub releases are preferred for HACS users. Tags use the `vX.Y.Z`

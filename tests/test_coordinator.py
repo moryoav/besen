@@ -1,4 +1,4 @@
-"""Tests for the Besen BS20 coordinator."""
+"""Tests for the Besen coordinator."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ from typing import Any, cast
 import pytest
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from besen_bs20.exceptions import CommandFailed
-from besen_bs20.models import BesenBS20Data, ChargerInfo
-from custom_components.besen_bs20.coordinator import BesenBS20Coordinator
+from besen.exceptions import CommandFailed
+from besen.models import BesenData, ChargerInfo
+from custom_components.besen.coordinator import BesenCoordinator
 
 
 class _FakeClient:
@@ -21,15 +21,15 @@ class _FakeClient:
     def __init__(self) -> None:
         """Initialize the fake client."""
 
-        self.state = BesenBS20Data(info=ChargerInfo(address="AA:BB"))
+        self.state = BesenData(info=ChargerInfo(address="AA:BB"))
         self.calls: list[tuple[str, object | None]] = []
-        self.listener: Callable[[BesenBS20Data], None] | None = None
+        self.listener: Callable[[BesenData], None] | None = None
         self.removed = False
         self.fail_next_command = False
 
     def add_listener(
         self,
-        listener: Callable[[BesenBS20Data], None],
+        listener: Callable[[BesenData], None],
     ) -> Callable[[], None]:
         """Record a listener."""
 
@@ -101,13 +101,13 @@ def _patch_coordinator_base(monkeypatch: pytest.MonkeyPatch) -> None:
         logger: logging.Logger,
         *,
         name: str,
-        update_method: Callable[[], Awaitable[BesenBS20Data]],
+        update_method: Callable[[], Awaitable[BesenData]],
     ) -> None:
         del hass, logger, name
         cast(Any, self).data = None
         cast(Any, self).update_method = update_method
 
-        def _set_updated_data(data: BesenBS20Data) -> None:
+        def _set_updated_data(data: BesenData) -> None:
             cast(Any, self).data = data
 
         cast(Any, self).async_set_updated_data = _set_updated_data
@@ -127,10 +127,10 @@ async def test_coordinator_lifecycle_and_updates(
 
     _patch_coordinator_base(monkeypatch)
     client = _FakeClient()
-    coordinator = BesenBS20Coordinator(cast(Any, SimpleNamespace()), cast(Any, client))
+    coordinator = BesenCoordinator(cast(Any, SimpleNamespace()), cast(Any, client))
 
     await coordinator.async_start()
-    new_state = BesenBS20Data(
+    new_state = BesenData(
         info=ChargerInfo(address="AA:BB", model="BS20"),
         available=True,
     )
@@ -153,7 +153,7 @@ async def test_coordinator_commands_and_failures(
 
     _patch_coordinator_base(monkeypatch)
     client = _FakeClient()
-    coordinator = BesenBS20Coordinator(cast(Any, SimpleNamespace()), cast(Any, client))
+    coordinator = BesenCoordinator(cast(Any, SimpleNamespace()), cast(Any, client))
 
     await coordinator.async_start_charging()
     await coordinator.async_stop_charging()

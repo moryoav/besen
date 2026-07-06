@@ -1,11 +1,11 @@
-"""Tests for the Besen BS20 packet protocol."""
+"""Tests for the Besen packet protocol."""
 
 from __future__ import annotations
 
 import pytest
 
-from besen_bs20.exceptions import ProtocolError
-from besen_bs20.protocol import (
+from besen.exceptions import ProtocolError
+from besen.protocol import (
     PacketAssembler,
     build_command,
     bytes_to_int_little,
@@ -289,9 +289,7 @@ def test_config_and_command_parsers() -> None:
     assert parse_system_language(b"\x02\x03", "") == {"language": "Deutsch"}
     assert parse_system_language(b"\x02\xff", "") == {"language": None}
     assert parse_temperature_unit(b"\x02\x01", "") == {"temperature_unit": "Celsius"}
-    assert parse_temperature_unit(b"\x02\x02", "") == {
-        "temperature_unit": "Fahrenheit"
-    }
+    assert parse_temperature_unit(b"\x02\x02", "") == {"temperature_unit": "Fahrenheit"}
     assert parse_charge_start(b"\x01\x00\x01\x00\x10", "") == {
         "line_id": 1,
         "reservation_result": "No error",

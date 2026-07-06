@@ -1,4 +1,4 @@
-"""Number platform for Besen BS20."""
+"""Number platform for Besen."""
 
 from __future__ import annotations
 
@@ -15,12 +15,12 @@ from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfElectricCurren
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from besen_bs20.models import BesenBS20Data
+from besen.models import BesenData
 
-from . import BesenBS20ConfigEntry
+from . import BesenConfigEntry
 from .const import FALLBACK_MAX_CHARGE_AMPS, MIN_CHARGE_AMPS
-from .coordinator import BesenBS20Coordinator
-from .entity import BesenBS20Entity
+from .coordinator import BesenCoordinator
+from .entity import BesenEntity
 
 PARALLEL_UPDATES = 0
 
@@ -29,9 +29,9 @@ PARALLEL_UPDATES = 0
 class BesenNumberEntityDescription(NumberEntityDescription):
     """Besen number description."""
 
-    value_fn: Callable[[BesenBS20Data], float | None]
-    set_fn: Callable[[BesenBS20Coordinator, float], Awaitable[None]]
-    max_fn: Callable[[BesenBS20Data], float]
+    value_fn: Callable[[BesenData], float | None]
+    set_fn: Callable[[BesenCoordinator, float], Awaitable[None]]
+    max_fn: Callable[[BesenData], float]
 
 
 NUMBERS: tuple[BesenNumberEntityDescription, ...] = (
@@ -68,27 +68,27 @@ NUMBERS: tuple[BesenNumberEntityDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: BesenBS20ConfigEntry,
+    entry: BesenConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Besen BS20 numbers."""
+    """Set up Besen numbers."""
 
     async_add_entities(
         [
-            BesenBS20Number(entry.runtime_data.coordinator, description)
+            BesenNumber(entry.runtime_data.coordinator, description)
             for description in NUMBERS
         ]
     )
 
 
-class BesenBS20Number(BesenBS20Entity, NumberEntity):
-    """Besen BS20 number entity."""
+class BesenNumber(BesenEntity, NumberEntity):
+    """Besen number entity."""
 
     entity_description: BesenNumberEntityDescription
 
     def __init__(
         self,
-        coordinator: BesenBS20Coordinator,
+        coordinator: BesenCoordinator,
         description: BesenNumberEntityDescription,
     ) -> None:
         """Initialize the number."""

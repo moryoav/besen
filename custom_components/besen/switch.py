@@ -1,4 +1,4 @@
-"""Switch platform for Besen BS20."""
+"""Switch platform for Besen."""
 
 from __future__ import annotations
 
@@ -8,29 +8,29 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import BesenBS20ConfigEntry
-from .coordinator import BesenBS20Coordinator
-from .entity import BesenBS20Entity
+from . import BesenConfigEntry
+from .coordinator import BesenCoordinator
+from .entity import BesenEntity
 
 PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: BesenBS20ConfigEntry,
+    entry: BesenConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Besen BS20 switches."""
+    """Set up Besen switches."""
 
-    async_add_entities([BesenBS20ChargeSwitch(entry.runtime_data.coordinator)])
+    async_add_entities([BesenChargeSwitch(entry.runtime_data.coordinator)])
 
 
-class BesenBS20ChargeSwitch(BesenBS20Entity, SwitchEntity):
+class BesenChargeSwitch(BesenEntity, SwitchEntity):
     """Charging control switch."""
 
     _attr_icon = "mdi:ev-plug-type2"
 
-    def __init__(self, coordinator: BesenBS20Coordinator) -> None:
+    def __init__(self, coordinator: BesenCoordinator) -> None:
         """Initialize the switch."""
 
         super().__init__(coordinator, "charging", name="Charge")

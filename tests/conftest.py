@@ -33,8 +33,8 @@ def _install_bluetooth_stub() -> None:
     bluetooth_any.BluetoothReachabilityIntent = SimpleNamespace(CONNECTION="connection")
     bluetooth_any.async_ble_device_from_address = async_ble_device_from_address
     bluetooth_any.async_request_active_scan = async_request_active_scan
-    bluetooth_any.async_address_reachability_diagnostics = (
-        lambda *args, **kwargs: "No connectable Bluetooth path is available"
+    bluetooth_any.async_address_reachability_diagnostics = lambda *args, **kwargs: (
+        "No connectable Bluetooth path is available"
     )
     sys.modules["homeassistant.components.bluetooth"] = bluetooth
 

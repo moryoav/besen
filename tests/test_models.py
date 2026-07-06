@@ -1,9 +1,9 @@
-"""Tests for Besen BS20 data models."""
+"""Tests for Besen data models."""
 
 from __future__ import annotations
 
-from besen_bs20.models import (
-    BesenBS20Data,
+from besen.models import (
+    BesenData,
     ChargerConfig,
     ChargerInfo,
     ChargeStatus,
@@ -18,7 +18,7 @@ def test_data_models_are_immutable_and_updatable() -> None:
     config = ChargerConfig(charge_amps=6)
     charge = ChargeStatus(charger_status=False)
     command = CommandResult(command="charge_start", values={"output_amps": 6})
-    data = BesenBS20Data(
+    data = BesenData(
         info=info,
         config=config,
         charge=charge,

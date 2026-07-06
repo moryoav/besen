@@ -3,9 +3,9 @@ requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "besen-bs20"
-version = "0.2.2"
-description = "Async Python client for Besen BS20 EV chargers over BLE"
+name = "besen"
+version = "0.3.0"
+description = "Async Python client for Besen EV chargers over BLE"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
@@ -25,10 +25,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/moryoav/ha_besen-bs20"
-Repository = "https://github.com/moryoav/ha_besen-bs20"
-Issues = "https://github.com/moryoav/ha_besen-bs20/issues"
-Changelog = "https://github.com/moryoav/ha_besen-bs20/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/moryoav/ha_besen"
+Repository = "https://github.com/moryoav/ha_besen"
+Issues = "https://github.com/moryoav/ha_besen/issues"
+Changelog = "https://github.com/moryoav/ha_besen/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
@@ -52,9 +52,9 @@ pythonpath = ["src", "."]
 
 [tool.coverage.run]
 branch = true
-source = ["custom_components/besen_bs20", "src/besen_bs20"]
+source = ["custom_components/besen", "src/besen"]
 omit = [
-  "custom_components/besen_bs20/translations/*",
+  "custom_components/besen/translations/*",
 ]
 
 [tool.coverage.report]
@@ -71,7 +71,7 @@ select = ["A", "ASYNC", "B", "C4", "DTZ", "E", "F", "FA", "I", "ICN", "N", "PERF
 ignore = ["ASYNC109", "N818"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["besen_bs20", "custom_components.besen_bs20"]
+known-first-party = ["besen", "custom_components.besen"]
 
 [tool.mypy]
 python_version = "3.13"
@@ -79,8 +79,8 @@ strict = true
 warn_unreachable = true
 explicit_package_bases = true
 mypy_path = "src"
-files = ["src/besen_bs20", "custom_components/besen_bs20", "tests"]
-exclude = ["build", "dist", "besen_bs20.egg-info", "ha_besen_bs20.egg-info"]
+files = ["src/besen", "custom_components/besen", "tests"]
+exclude = ["build", "dist", "besen.egg-info", "besen_bs20.egg-info", "ha_besen_bs20.egg-info"]
 
 [[tool.mypy.overrides]]
 module = ["bleak.*", "bleak_retry_connector.*"]

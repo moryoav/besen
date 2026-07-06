@@ -1,6 +1,6 @@
 # Security Policy
 
-Besen BS20 for Home Assistant stores a charger PIN and can send BLE commands
+Besen for Home Assistant stores a charger PIN and can send BLE commands
 that control EV charging behavior. Please treat security, privacy, and safety
 issues with care.
 

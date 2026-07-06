@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.3.0] - 2026-07-06
+
+### Changed
+
+- Renamed the published Python distribution and import package from `besen-bs20` / `besen_bs20` to `besen`.
+- Renamed the public Python client/data/error API to `BesenClient`, `BesenData`, and `BesenError`.
+- Renamed the bundled Home Assistant custom integration domain from `besen_bs20` to `besen` and updated it to depend on `besen==0.3.0`.
+
 ## [0.2.2] - 2026-07-02
 
 ### Changed

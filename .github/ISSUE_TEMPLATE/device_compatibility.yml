@@ -1,5 +1,5 @@
 name: Device compatibility report
-description: Share results from a Besen BS20-compatible charger variant.
+description: Share results from a Besen-compatible charger variant.
 title: "[Compatibility]: "
 labels: ["compatibility"]
 body:
@@ -12,7 +12,7 @@ body:
     attributes:
       label: Charger model
       description: Include the brand/model printed on the charger if known.
-      placeholder: "Besen BS20"
+      placeholder: "Besen"
     validations:
       required: true
   - type: input

@@ -1,4 +1,4 @@
-"""Text platform for Besen BS20."""
+"""Text platform for Besen."""
 
 from __future__ import annotations
 
@@ -7,24 +7,24 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import BesenBS20ConfigEntry
-from .coordinator import BesenBS20Coordinator
-from .entity import BesenBS20Entity
+from . import BesenConfigEntry
+from .coordinator import BesenCoordinator
+from .entity import BesenEntity
 
 PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: BesenBS20ConfigEntry,
+    entry: BesenConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Besen BS20 text entities."""
+    """Set up Besen text entities."""
 
-    async_add_entities([BesenBS20NameText(entry.runtime_data.coordinator)])
+    async_add_entities([BesenNameText(entry.runtime_data.coordinator)])
 
 
-class BesenBS20NameText(BesenBS20Entity, TextEntity):
+class BesenNameText(BesenEntity, TextEntity):
     """Charger device name text entity."""
 
     _attr_entity_category = EntityCategory.CONFIG
@@ -32,7 +32,7 @@ class BesenBS20NameText(BesenBS20Entity, TextEntity):
     _attr_native_max = 11
     _attr_icon = "mdi:rename-outline"
 
-    def __init__(self, coordinator: BesenBS20Coordinator) -> None:
+    def __init__(self, coordinator: BesenCoordinator) -> None:
         """Initialize the text entity."""
 
         super().__init__(coordinator, "device_name", name="Name")

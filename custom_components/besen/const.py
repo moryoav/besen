@@ -1,8 +1,8 @@
-"""Constants for the Besen BS20 integration."""
+"""Constants for the Besen integration."""
 
 from typing import Final
 
-from besen_bs20.const import (
+from besen.const import (
     CHARGING_STATUS,
     CHARGING_STATUS_DESCRIPTIONS,
     CURRENT_STATE,
@@ -15,9 +15,9 @@ from besen_bs20.const import (
     TEMPERATURE_UNITS,
 )
 
-DOMAIN: Final = "besen_bs20"
-NAME: Final = "Besen BS20"
-VERSION: Final = "0.2.2"
+DOMAIN: Final = "besen"
+NAME: Final = "Besen"
+VERSION: Final = "0.3.0"
 
 PLATFORMS: Final = [
     "sensor",

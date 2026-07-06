@@ -1,4 +1,4 @@
-"""Select platform for Besen BS20."""
+"""Select platform for Besen."""
 
 from __future__ import annotations
 
@@ -11,12 +11,12 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from besen_bs20.models import BesenBS20Data
+from besen.models import BesenData
 
-from . import BesenBS20ConfigEntry
+from . import BesenConfigEntry
 from .const import LANGUAGES, TEMPERATURE_UNITS
-from .coordinator import BesenBS20Coordinator
-from .entity import BesenBS20Entity
+from .coordinator import BesenCoordinator
+from .entity import BesenEntity
 
 PARALLEL_UPDATES = 0
 
@@ -25,8 +25,8 @@ PARALLEL_UPDATES = 0
 class BesenSelectEntityDescription(SelectEntityDescription):
     """Besen select description."""
 
-    value_fn: Callable[[BesenBS20Data], str | None]
-    set_fn: Callable[[BesenBS20Coordinator, str], Awaitable[None]]
+    value_fn: Callable[[BesenData], str | None]
+    set_fn: Callable[[BesenCoordinator, str], Awaitable[None]]
 
 
 SELECTS: tuple[BesenSelectEntityDescription, ...] = (
@@ -53,27 +53,27 @@ SELECTS: tuple[BesenSelectEntityDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: BesenBS20ConfigEntry,
+    entry: BesenConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Besen BS20 selects."""
+    """Set up Besen selects."""
 
     async_add_entities(
         [
-            BesenBS20Select(entry.runtime_data.coordinator, description)
+            BesenSelect(entry.runtime_data.coordinator, description)
             for description in SELECTS
         ]
     )
 
 
-class BesenBS20Select(BesenBS20Entity, SelectEntity):
-    """Besen BS20 select."""
+class BesenSelect(BesenEntity, SelectEntity):
+    """Besen select."""
 
     entity_description: BesenSelectEntityDescription
 
     def __init__(
         self,
-        coordinator: BesenBS20Coordinator,
+        coordinator: BesenCoordinator,
         description: BesenSelectEntityDescription,
     ) -> None:
         """Initialize the select."""
