@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.3.3] - 2026-07-30
+
+### Fixed
+
+- Updated project, documentation, badge, and contribution links after renaming the GitHub repository to `moryoav/besen`.
+
 ## [0.3.2] - 2026-07-06
 
 ### Fixed

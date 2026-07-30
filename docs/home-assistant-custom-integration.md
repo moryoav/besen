@@ -41,7 +41,7 @@ The charger can only keep one active BLE client connection. In some cases, after
 
 ### HACS custom repository
 
-[![Open the Besen HACS repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=moryoav&repository=ha_besen&category=integration)
+[![Open the Besen HACS repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=moryoav&repository=besen&category=integration)
 
 1. Open HACS.
 2. Add this repository as a custom integration repository.
@@ -213,16 +213,16 @@ This integration exposes charger controls but is not a safety controller. Do not
 
 The Bluetooth protocol implementation is based on the MIT-licensed work in [slespersen/evseMQTT](https://github.com/slespersen/evseMQTT), with the MQTT/runtime portions replaced by native Home Assistant integration code.
 
-Additional attribution details are maintained in [NOTICE.md](https://github.com/moryoav/ha_besen/blob/main/NOTICE.md).
+Additional attribution details are maintained in [NOTICE.md](https://github.com/moryoav/besen/blob/main/NOTICE.md).
 
 [hacs-badge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square
 [hacs-url]: https://github.com/hacs/integration
-[release-badge]: https://img.shields.io/github/v/release/moryoav/ha_besen?style=flat-square
-[release-url]: https://github.com/moryoav/ha_besen/releases
-[downloads-badge]: https://img.shields.io/github/downloads/moryoav/ha_besen/total?style=flat-square
-[hassfest-badge]: https://img.shields.io/github/actions/workflow/status/moryoav/ha_besen/hassfest.yaml?branch=main&style=flat-square&label=hassfest
-[hassfest-url]: https://github.com/moryoav/ha_besen/actions/workflows/hassfest.yaml
-[validate-badge]: https://img.shields.io/github/actions/workflow/status/moryoav/ha_besen/validate.yaml?branch=main&style=flat-square&label=validate
-[validate-url]: https://github.com/moryoav/ha_besen/actions/workflows/validate.yaml
-[license-badge]: https://img.shields.io/github/license/moryoav/ha_besen?style=flat-square
-[license-url]: https://github.com/moryoav/ha_besen/blob/main/LICENSE
+[release-badge]: https://img.shields.io/github/v/release/moryoav/besen?style=flat-square
+[release-url]: https://github.com/moryoav/besen/releases
+[downloads-badge]: https://img.shields.io/github/downloads/moryoav/besen/total?style=flat-square
+[hassfest-badge]: https://img.shields.io/github/actions/workflow/status/moryoav/besen/hassfest.yaml?branch=main&style=flat-square&label=hassfest
+[hassfest-url]: https://github.com/moryoav/besen/actions/workflows/hassfest.yaml
+[validate-badge]: https://img.shields.io/github/actions/workflow/status/moryoav/besen/validate.yaml?branch=main&style=flat-square&label=validate
+[validate-url]: https://github.com/moryoav/besen/actions/workflows/validate.yaml
+[license-badge]: https://img.shields.io/github/license/moryoav/besen?style=flat-square
+[license-url]: https://github.com/moryoav/besen/blob/main/LICENSE

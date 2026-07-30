@@ -58,8 +58,8 @@ clear failure behavior and should not bypass electrical safety protections.
 Clone the repository:
 
 ```bash
-git clone https://github.com/moryoav/ha_besen.git
-cd ha_besen
+git clone https://github.com/moryoav/besen.git
+cd besen
 ```
 
 Install development dependencies:
@@ -174,7 +174,7 @@ the workflow easier to understand.
 Stable users should use the default repository URL:
 
 ```text
-https://github.com/moryoav/ha_besen
+https://github.com/moryoav/besen
 ```
 
 Published GitHub releases are preferred for HACS users. Tags use the `vX.Y.Z`

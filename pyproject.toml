@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "besen"
-version = "0.3.2"
+version = "0.3.3"
 description = "Async Python client for Besen EV chargers over BLE"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -25,10 +25,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/moryoav/ha_besen"
-Repository = "https://github.com/moryoav/ha_besen"
-Issues = "https://github.com/moryoav/ha_besen/issues"
-Changelog = "https://github.com/moryoav/ha_besen/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/moryoav/besen"
+Repository = "https://github.com/moryoav/besen"
+Issues = "https://github.com/moryoav/besen/issues"
+Changelog = "https://github.com/moryoav/besen/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [

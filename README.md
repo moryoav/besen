@@ -164,7 +164,7 @@ start or stop the client.
 This package is the reusable Python communication library used by the Besen Home
 Assistant integration. Home Assistant user-facing setup and troubleshooting notes
 are kept separately in
-[docs/home-assistant-custom-integration.md](https://github.com/moryoav/ha_besen/blob/main/docs/home-assistant-custom-integration.md).
+[docs/home-assistant-custom-integration.md](https://github.com/moryoav/besen/blob/main/docs/home-assistant-custom-integration.md).
 
 ## Safety
 
@@ -180,15 +180,15 @@ The Bluetooth protocol implementation is based on the MIT-licensed work in
 runtime behavior replaced by a reusable async Python client.
 
 Additional attribution details are maintained in
-[NOTICE.md](https://github.com/moryoav/ha_besen/blob/main/NOTICE.md).
+[NOTICE.md](https://github.com/moryoav/besen/blob/main/NOTICE.md).
 
 ## License
 
-MIT. See [LICENSE](https://github.com/moryoav/ha_besen/blob/main/LICENSE).
+MIT. See [LICENSE](https://github.com/moryoav/besen/blob/main/LICENSE).
 
-[release-badge]: https://img.shields.io/github/v/release/moryoav/ha_besen?style=flat-square
-[release-url]: https://github.com/moryoav/ha_besen/releases
-[ci-badge]: https://img.shields.io/github/actions/workflow/status/moryoav/ha_besen/ci.yml?branch=main&style=flat-square&label=CI
-[ci-url]: https://github.com/moryoav/ha_besen/actions/workflows/ci.yml
-[license-badge]: https://img.shields.io/github/license/moryoav/ha_besen?style=flat-square
-[license-url]: https://github.com/moryoav/ha_besen/blob/main/LICENSE
+[release-badge]: https://img.shields.io/github/v/release/moryoav/besen?style=flat-square
+[release-url]: https://github.com/moryoav/besen/releases
+[ci-badge]: https://img.shields.io/github/actions/workflow/status/moryoav/besen/ci.yml?branch=main&style=flat-square&label=CI
+[ci-url]: https://github.com/moryoav/besen/actions/workflows/ci.yml
+[license-badge]: https://img.shields.io/github/license/moryoav/besen?style=flat-square
+[license-url]: https://github.com/moryoav/besen/blob/main/LICENSE
