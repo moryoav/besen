@@ -13,11 +13,15 @@ from bleak.backends.device import BLEDevice
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from .const import (
+    CLOCK_SYNC_INTERVAL,
     CONNECT_ATTEMPTS,
     CONNECT_TIMEOUT,
     DEFAULT_CHARGE_AMPS,
+    DISCONNECT_TIMEOUT,
     FALLBACK_MAX_CHARGE_AMPS,
     LANGUAGES,
+    LOGIN_ATTEMPTS,
+    LOGIN_REQUEST_RETRY_INTERVAL,
     LOGIN_TIMEOUT,
     MESSAGE_TIMEOUT,
     MIN_CHARGE_AMPS,
@@ -29,6 +33,7 @@ from .const import (
     REV_BOARD_SERVICE_PREFIXES,
     REV_READ_UUID,
     REV_WRITE_UUID,
+    SILENT_LOGIN_TIMEOUT,
     STOP_REASON,
     TEMPERATURE_UNIT_ALIASES,
     TEMPERATURE_UNITS,
@@ -81,15 +86,26 @@ class BesenClient:
         self._characteristics: CharacteristicPair | None = None
         self._assembler = PacketAssembler()
         self._listeners: set[StateListener] = set()
+        self._connect_lock = asyncio.Lock()
         self._command_lock = asyncio.Lock()
+        self._packet_lock = asyncio.Lock()
         self._ready_event = asyncio.Event()
+        self._connect_owner_task: asyncio.Task[None] | None = None
         self._reconnect_task: asyncio.Task[None] | None = None
         self._watchdog_task: asyncio.Task[None] | None = None
         self._background_tasks: set[asyncio.Task[None]] = set()
         self._stopping = False
-        self._reconnecting = False
         self._auth_failed = False
+        self._connection_error: str | None = None
+        self._received_any_packet = False
+        self._login_request_sent = False
+        self._last_login_request: float | None = None
+        self._login_confirm_sent = False
+        self._connection_generation = 0
+        self._disconnecting_client: BleakClientWithServiceCache | None = None
+        self._reconnect_requested = False
         self._last_message = time.monotonic()
+        self._last_clock_sync: float | None = None
         self._last_unavailable_log: float | None = None
         self._state = BesenData(
             info=ChargerInfo(address=address, advertised_name=advertised_name)
@@ -121,28 +137,64 @@ class BesenClient:
         """Connect and complete the charger login flow."""
 
         self._stopping = False
-        await self._connect_and_login()
+        try:
+            await self._connect_and_login()
+        except BaseException:
+            self._reconnect_requested = False
+            try:
+                await asyncio.shield(self._disconnect_client())
+            except CannotConnect as err:
+                self._logger.warning(
+                    "Unable to release BLE connection after startup failure: %s",
+                    err,
+                )
+            self._set_state(available=False, authenticated=False)
+            raise
         self._start_watchdog()
 
     async def async_stop(self) -> None:
         """Stop tasks and disconnect from the charger."""
 
         self._stopping = True
-        for task in (self._reconnect_task, self._watchdog_task):
-            if task:
-                task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await task
-        for task in self._background_tasks:
+        self._ready_event.set()
+        current = asyncio.current_task()
+        tasks = {
+            task
+            for task in (
+                self._connect_owner_task,
+                self._reconnect_task,
+                self._watchdog_task,
+            )
+            if task is not None and task is not current
+        }
+        for task in tasks:
             task.cancel()
-        for task in self._background_tasks:
+        for task in tasks:
             with suppress(asyncio.CancelledError):
                 await task
-        self._background_tasks.clear()
+        await self._cancel_background_tasks()
+        self._connect_owner_task = None
         self._reconnect_task = None
         self._watchdog_task = None
-        await self._disconnect_client()
-        self._set_state(available=False, authenticated=False)
+        self._reconnect_requested = False
+        disconnect_error: CannotConnect | None = None
+        for _attempt in range(2):
+            try:
+                await self._disconnect_client()
+            except CannotConnect as err:
+                disconnect_error = err
+                continue
+            disconnect_error = None
+            break
+        if disconnect_error is not None:
+            self._logger.error(
+                "Besen BLE cleanup failed during shutdown: %s", disconnect_error
+            )
+        self._set_state(
+            available=False,
+            authenticated=False,
+            last_error=str(disconnect_error) if disconnect_error else None,
+        )
 
     async def async_start_charging(self, amps: int | None = None) -> None:
         """Start charging at the requested amperage."""
@@ -233,33 +285,116 @@ class BesenClient:
             [0, 1, 0, 1, 0, 0, 0, 0],
             name="get_lcd_brightness",
         )
-        if self.sync_clock:
-            await self._send_command(33025, [1, timestamp_bytes()], name="set_time")
+        await self._async_sync_clock_if_due(force=True)
         await self._send_command(33025, [2, 0], name="get_time")
 
     async def _connect_and_login(self) -> None:
         """Connect to the BLE device and wait for authentication."""
 
-        self._ready_event = asyncio.Event()
-        self._auth_failed = False
-        await self._connect_once()
-        try:
-            async with asyncio.timeout(LOGIN_TIMEOUT):
-                await self._ready_event.wait()
-        except TimeoutError as err:
-            raise CannotConnect("Timed out waiting for charger login") from err
-        if self._auth_failed:
-            raise InvalidAuth("The charger rejected the configured PIN")
+        owner = asyncio.current_task()
+        assert owner is not None
+        async with self._connect_lock:
+            self._connect_owner_task = owner
+            try:
+                if self._stopping:
+                    raise CannotConnect("Besen client is stopping")
+                await self._connect_and_login_locked()
+                if not self.is_connected or not self._state.authenticated:
+                    raise CannotConnect("Charger login ended without an active session")
+            finally:
+                if self._connect_owner_task is owner:
+                    self._connect_owner_task = None
+
+    async def _connect_and_login_locked(self) -> None:
+        """Own the single connection/login workflow until it completes."""
+
+        for attempt in range(1, LOGIN_ATTEMPTS + 1):
+            if self._stopping:
+                raise CannotConnect("Besen client is stopping")
+            self._ready_event = asyncio.Event()
+            self._auth_failed = False
+            self._connection_error = None
+            self._received_any_packet = False
+            await self._connect_once()
+            timed_out = False
+            try:
+                async with asyncio.timeout(SILENT_LOGIN_TIMEOUT):
+                    await self._ready_event.wait()
+            except TimeoutError:
+                if self._received_any_packet:
+                    try:
+                        async with asyncio.timeout(
+                            LOGIN_TIMEOUT - SILENT_LOGIN_TIMEOUT
+                        ):
+                            await self._ready_event.wait()
+                    except TimeoutError:
+                        timed_out = True
+                else:
+                    timed_out = True
+            if self._auth_failed:
+                try:
+                    await self._disconnect_login_attempt(
+                        "The charger rejected the configured PIN"
+                    )
+                except CannotConnect as err:
+                    self._logger.warning(
+                        "Unable to release BLE connection after PIN rejection: %s",
+                        err,
+                    )
+                raise InvalidAuth("The charger rejected the configured PIN")
+
+            if (
+                not timed_out
+                and self._connection_error is None
+                and self.is_connected
+                and self._state.authenticated
+            ):
+                self._reconnect_requested = False
+                return
+
+            reason = self._connection_error or "Timed out waiting for charger login"
+            await self._disconnect_login_attempt(reason)
+            if (timed_out and self._received_any_packet) or attempt == LOGIN_ATTEMPTS:
+                raise CannotConnect(reason)
+            if self._received_any_packet:
+                message = "Besen login did not complete"
+            else:
+                message = "No Besen packets were received during login"
+            self._logger.warning(
+                "%s; retrying a fresh Bluetooth connection in %s seconds "
+                "(attempt %s/%s)",
+                message,
+                RECONNECT_DELAY,
+                attempt,
+                LOGIN_ATTEMPTS,
+            )
+            await asyncio.sleep(RECONNECT_DELAY)
+
+    async def _disconnect_login_attempt(self, reason: str) -> None:
+        """Disconnect an incomplete login attempt before it can occupy a slot."""
+
+        self._set_state(
+            available=False,
+            authenticated=False,
+            last_error=reason,
+        )
+        await self._disconnect_client()
 
     async def _connect_once(self) -> None:
         """Open a BLE connection and subscribe to notifications."""
 
+        if self._stopping:
+            raise CannotConnect("Besen client is stopping")
         ble_device = self._ble_device_provider()
         if ble_device is None:
             raise CannotConnect("No connectable Bluetooth path is available")
 
         await self._disconnect_client()
         self._assembler = PacketAssembler()
+        self._login_request_sent = False
+        self._last_login_request = None
+        self._login_confirm_sent = False
+        generation = self._connection_generation
         self._logger.debug("Connecting to Besen at %s", self.address)
         try:
             self._client = await establish_connection(
@@ -274,6 +409,9 @@ class BesenClient:
                 ),
                 timeout=CONNECT_TIMEOUT,
             )
+            client = self._client
+            if self._stopping:
+                raise CannotConnect("Besen client stopped while connecting")
             self._characteristics = self._select_characteristics()
             self._logger.debug(
                 "Selected Besen %s board characteristics read=%s write=%s",
@@ -282,34 +420,91 @@ class BesenClient:
                 self._characteristics.write_uuid,
             )
             self._update_info(board_revision=self._characteristics.board_revision)
+            self._last_message = time.monotonic()
+            self._last_unavailable_log = None
+            self._set_state(available=True, authenticated=False, last_error=None)
+
+            def _handle_notification(sender: Any, data: bytearray) -> None:
+                self._notification(sender, data, generation=generation)
+
             await self._client.start_notify(
                 self._characteristics.read_uuid,
-                self._notification,
+                _handle_notification,
             )
+            if self._client is not client or not client.is_connected:
+                raise CannotConnect(
+                    "Charger disconnected while notifications were starting"
+                )
         except Exception as err:
             await self._disconnect_client()
             raise CannotConnect(
                 f"Unable to connect to charger via BLE: {type(err).__name__}: {err}"
             ) from err
 
-        self._last_message = time.monotonic()
-        self._last_unavailable_log = None
-        self._set_state(available=True, last_error=None)
-
     async def _disconnect_client(self) -> None:
         """Disconnect the BLE client if connected."""
 
         client = self._client
-        self._client = None
+        self._connection_generation += 1
         if client is None:
+            self._characteristics = None
             return
         read_uuid = self._characteristics.read_uuid if self._characteristics else None
-        if client.is_connected and read_uuid:
-            with suppress(Exception):
-                await client.stop_notify(read_uuid)
+        self._disconnecting_client = client
+        disconnect_error: Exception | None = None
+        try:
+            await self._cancel_background_tasks()
+            async with self._command_lock:
+                if client.is_connected and read_uuid:
+                    try:
+                        async with asyncio.timeout(DISCONNECT_TIMEOUT):
+                            await client.stop_notify(read_uuid)
+                    except Exception as err:
+                        self._logger.debug(
+                            "Unable to stop Besen notifications: %s", err
+                        )
+                if client.is_connected:
+                    try:
+                        async with asyncio.timeout(DISCONNECT_TIMEOUT):
+                            await client.disconnect()
+                    except Exception as err:
+                        disconnect_error = err
+                if not client.is_connected and self._client is client:
+                    self._client = None
+                    self._characteristics = None
+        finally:
+            self._disconnecting_client = None
+            if not client.is_connected and self._client is client:
+                self._client = None
+                self._characteristics = None
+
         if client.is_connected:
-            with suppress(Exception):
-                await client.disconnect()
+            message = "Unable to release the existing Besen BLE connection"
+            self._logger.warning(
+                "%s: %s", message, disconnect_error or "still connected"
+            )
+            raise CannotConnect(message) from disconnect_error
+
+    async def _cancel_background_tasks(self) -> None:
+        """Cancel packet handlers that belong to an ending connection."""
+
+        current = asyncio.current_task()
+        tasks = [task for task in self._background_tasks if task is not current]
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            with suppress(asyncio.CancelledError, Exception):
+                await task
+        self._background_tasks.difference_update(tasks)
+
+    def _background_task_done(self, task: asyncio.Task[None]) -> None:
+        """Consume packet-handler failures so they are not lost by asyncio."""
+
+        self._background_tasks.discard(task)
+        if task.cancelled():
+            return
+        if err := task.exception():
+            self._logger.warning("Besen packet handler failed: %s", err)
 
     def _select_characteristics(self) -> CharacteristicPair:
         """Select read/write characteristics from advertised GATT services."""
@@ -334,21 +529,40 @@ class BesenClient:
             board_revision=BoardRevision.OLD,
         )
 
-    def _disconnected(self, _client: BleakClientWithServiceCache) -> None:
+    def _disconnected(self, client: BleakClientWithServiceCache) -> None:
         """Handle an unexpected BLE disconnection."""
 
-        if self._stopping or self._reconnecting:
+        if (
+            self._stopping
+            or client is self._disconnecting_client
+            or client is not self._client
+        ):
             return
+        self._client = None
+        self._characteristics = None
+        self._connection_generation += 1
+        for task in self._background_tasks:
+            task.cancel()
         self._set_state(
             available=False,
             authenticated=False,
             last_error="Bluetooth connection lost",
         )
+        self._connection_error = "Bluetooth connection lost during charger login"
+        self._ready_event.set()
         self._schedule_reconnect()
 
-    def _notification(self, _sender: Any, data: bytearray) -> None:
+    def _notification(
+        self,
+        _sender: Any,
+        data: bytearray,
+        *,
+        generation: int | None = None,
+    ) -> None:
         """Process a BLE notification callback."""
 
+        if generation is not None and generation != self._connection_generation:
+            return
         self._last_message = time.monotonic()
         try:
             packets = self._assembler.feed(data)
@@ -356,26 +570,48 @@ class BesenClient:
             self._logger.debug("Dropping invalid packet: %s", err)
             return
         for packet in packets:
+            self._received_any_packet = True
             task = asyncio.create_task(
                 self._async_handle_packet(
                     packet.command,
                     packet.data,
                     packet.identifier,
+                    generation=generation,
                 )
             )
             self._background_tasks.add(task)
-            task.add_done_callback(self._background_tasks.discard)
+            task.add_done_callback(self._background_task_done)
 
     async def _async_handle_packet(
         self,
         command: int,
         data: bytes,
         identifier: str,
+        *,
+        generation: int | None = None,
     ) -> None:
         """Handle a parsed charger packet."""
 
+        async with self._packet_lock:
+            if self._stopping or (
+                generation is not None and generation != self._connection_generation
+            ):
+                return
+            await self._async_handle_packet_locked(command, data, identifier)
+
+    async def _async_handle_packet_locked(
+        self,
+        command: int,
+        data: bytes,
+        identifier: str,
+    ) -> None:
+        """Handle one packet in connection order."""
+
         self._logger.debug("Received Besen command %s", command)
         if command == 341:
+            if not self._login_request_sent or self._state.authenticated:
+                self._logger.debug("Ignoring unsolicited Besen login rejection")
+                return
             self._auth_failed = True
             self._ready_event.set()
             self._set_state(
@@ -396,21 +632,51 @@ class BesenClient:
 
         if command == 1:
             self._update_info(**values)
-            await self._send_login_request()
+            if self._state.authenticated:
+                return
+            now = time.monotonic()
+            if (
+                self._last_login_request is not None
+                and now - self._last_login_request < LOGIN_REQUEST_RETRY_INTERVAL
+            ):
+                return
+            self._last_login_request = now
+            try:
+                await self._send_login_request()
+            except Exception:
+                self._last_login_request = None
+                raise
+            self._login_request_sent = True
             return
 
         if command == 2:
             self._update_info(**values)
-            await self._send_login_confirm()
+            if not self._login_request_sent:
+                self._logger.debug(
+                    "Deferring Besen login confirmation until this connection "
+                    "has sent a login request"
+                )
+                return
+            if self._state.authenticated or self._login_confirm_sent:
+                return
+            self._login_confirm_sent = True
+            try:
+                await self._send_login_confirm()
+            except Exception:
+                self._login_confirm_sent = False
+                raise
+            await self.async_refresh_config()
             self._set_state(available=True, authenticated=True, last_error=None)
             self._ready_event.set()
-            await self.async_refresh_config()
             return
 
         if command == 3:
+            if not self._state.authenticated or self._state.info.serial is None:
+                self._logger.debug("Deferring Besen heartbeat until login is complete")
+                return
             await self._send_heartbeat()
-            if self.sync_clock:
-                await self._send_command(33025, [1, timestamp_bytes()], name="set_time")
+            if self._state.authenticated:
+                await self._async_sync_clock_if_due()
             return
 
         if command in (4, 13):
@@ -455,6 +721,21 @@ class BesenClient:
 
         await self._send_command(32771, [1], name="heartbeat")
 
+    async def _async_sync_clock_if_due(self, *, force: bool = False) -> None:
+        """Sync the charger clock once per login and then at a bounded rate."""
+
+        if not self.sync_clock:
+            return
+        now = time.monotonic()
+        if (
+            not force
+            and self._last_clock_sync is not None
+            and now - self._last_clock_sync < CLOCK_SYNC_INTERVAL
+        ):
+            return
+        await self._send_command(33025, [1, timestamp_bytes()], name="set_time")
+        self._last_clock_sync = now
+
     async def _send_command(
         self,
         command: int,
@@ -464,30 +745,32 @@ class BesenClient:
     ) -> None:
         """Build and send a command packet."""
 
-        if (
-            self._client is None
-            or self._characteristics is None
-            or not self.is_connected
-        ):
-            raise CommandFailed("Charger is not connected")
-        serial = self._state.info.serial
-        if serial is None:
-            raise CommandFailed("Charger serial is not known yet")
-
-        packet = build_command(serial, self.pin, command, payload)
         async with self._command_lock:
+            client = self._client
+            characteristics = self._characteristics
+            generation = self._connection_generation
+            if client is None or characteristics is None or not client.is_connected:
+                raise CommandFailed("Charger is not connected")
+            serial = self._state.info.serial
+            if serial is None:
+                raise CommandFailed("Charger serial is not known yet")
+            packet = build_command(serial, self.pin, command, payload)
             try:
-                await self._client.write_gatt_char(
-                    self._characteristics.write_uuid,
+                await client.write_gatt_char(
+                    characteristics.write_uuid,
                     packet,
                     response=False,
                 )
             except Exception as err:
-                self._set_state(
-                    available=False,
-                    last_error=f"Failed to send {name}: {err}",
-                )
-                self._schedule_reconnect()
+                if client is self._client and generation == self._connection_generation:
+                    self._set_state(
+                        available=False,
+                        authenticated=False,
+                        last_error=f"Failed to send {name}: {err}",
+                    )
+                    self._connection_error = f"Failed to send {name}: {err}"
+                    self._ready_event.set()
+                    self._schedule_reconnect()
                 raise CommandFailed(f"Failed to send {name}") from err
 
     def _charge_start_payload(self, amps: int) -> list[Any]:
@@ -571,8 +854,12 @@ class BesenClient:
 
         if self._stopping:
             return
+        self._reconnect_requested = True
+        if self._connect_lock.locked():
+            return
         if self._reconnect_task and not self._reconnect_task.done():
             return
+        self._reconnect_requested = False
         self._reconnect_task = asyncio.create_task(self._reconnect_loop())
 
     async def _reconnect_loop(self) -> None:
@@ -580,7 +867,7 @@ class BesenClient:
 
         while not self._stopping:
             await asyncio.sleep(RECONNECT_DELAY)
-            self._reconnecting = True
+            self._reconnect_requested = False
             try:
                 await self._connect_and_login()
             except InvalidAuth:
@@ -589,10 +876,14 @@ class BesenClient:
             except CannotConnect as err:
                 self._logger.debug("Besen reconnect failed: %s", err)
             else:
+                if (
+                    self._reconnect_requested
+                    or not self.is_connected
+                    or not self._state.authenticated
+                ):
+                    continue
                 self._logger.info("Besen reconnected")
                 return
-            finally:
-                self._reconnecting = False
 
     def _log_unavailable_warning(self, message: str, *args: object) -> None:
         """Log unavailable warnings without repeating every watchdog cycle."""

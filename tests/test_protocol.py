@@ -96,6 +96,20 @@ def test_build_command_validates_payload_and_accepts_hex_serial() -> None:
         build_command(12345678, "123456", 32770, [256])
 
 
+def test_charger_identifier_is_encoded_as_numeric_serial_in_replies() -> None:
+    """The charger sends BCD-like bytes but expects a little-endian integer."""
+
+    incoming = bytearray(build_command(0, "123456", 1))
+    incoming[5:13] = bytes.fromhex("8949281891483449")
+    incoming[-4:-2] = (sum(incoming[:-4]) % 0xFFFF).to_bytes(2, "big")
+
+    parsed = parse_packet(incoming)
+    reply = build_command(parsed.identifier, "123456", 32770)
+
+    assert parsed.identifier == "8949281891483449"
+    assert reply[5:13] == bytes.fromhex("39ff221053cb1f00")
+
+
 def test_packet_assembler_reassembles_fragmented_notifications() -> None:
     """BLE notification fragments are reassembled into full packets."""
 

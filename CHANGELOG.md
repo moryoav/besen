@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.3.4] - 2026-08-21
+
+### Fixed
+
+- Fixed reconnect handling when a charger keeps its previous application session after the Bluetooth connection is interrupted.
+- Prevented duplicate login packets, stale callbacks, and incomplete cleanup from causing reconnect loops.
+
 ## [0.3.3] - 2026-07-30
 
 ### Fixed

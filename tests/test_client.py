@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from collections import Counter
 from collections.abc import Callable
-from itertools import chain, repeat
 from typing import Any, cast
 
 import pytest
@@ -29,7 +30,9 @@ from besen.exceptions import (
     ProtocolError,
 )
 from besen.models import BoardRevision, CharacteristicPair
-from besen.protocol import PARSERS, build_command
+from besen.protocol import PARSERS, build_command, parse_packet
+
+EVSE_IDENTIFIER = "8949281891483449"
 
 
 class _Service:
@@ -65,6 +68,11 @@ class _FakeBleakClient:
         self.stopped_notifications: list[str] = []
         self.disconnected = False
         self.fail_write = False
+        self.fail_disconnect = False
+        self.disconnect_on_notify = False
+        self.disconnected_callback: Callable[[Any], None] | None = None
+        self.write_started: asyncio.Event | None = None
+        self.write_release: asyncio.Event | None = None
 
     async def start_notify(
         self,
@@ -73,6 +81,12 @@ class _FakeBleakClient:
     ) -> None:
         """Start notifications and replay queued packets."""
 
+        if self.disconnect_on_notify:
+            self.is_connected = False
+            self.disconnected = True
+            assert self.disconnected_callback is not None
+            self.disconnected_callback(self)
+            return
         for packet in self.packets:
             callback(1, bytearray(packet))
 
@@ -84,6 +98,8 @@ class _FakeBleakClient:
     async def disconnect(self) -> None:
         """Disconnect the fake client."""
 
+        if self.fail_disconnect:
+            raise OSError("disconnect failed")
         self.disconnected = True
         self.is_connected = False
 
@@ -96,9 +112,39 @@ class _FakeBleakClient:
     ) -> None:
         """Record GATT writes."""
 
+        if self.write_started is not None:
+            self.write_started.set()
+        if self.write_release is not None:
+            await self.write_release.wait()
         if self.fail_write:
             raise OSError("write failed")
         self.writes.append((uuid, data, response))
+
+
+class _DelayedLoginBleakClient(_FakeBleakClient):
+    """Fake client that emits stale traffic before a delayed login flow."""
+
+    def __init__(self, delay: float) -> None:
+        super().__init__([])
+        self.delay = delay
+        self.emitter: asyncio.Task[None] | None = None
+
+    async def start_notify(
+        self,
+        uuid: str,
+        callback: Callable[[int, bytearray], None],
+    ) -> None:
+        """Emit one stale heartbeat, then login packets after a delay."""
+
+        del uuid
+        callback(1, bytearray(_evse_packet(3)))
+
+        async def _emit_login() -> None:
+            await asyncio.sleep(self.delay)
+            for packet in _login_packets():
+                callback(1, bytearray(packet))
+
+        self.emitter = asyncio.create_task(_emit_login())
 
 
 def _login_data() -> list[int]:
@@ -119,9 +165,25 @@ def _login_packets() -> list[bytes]:
     """Return packets for a successful login flow."""
 
     return [
-        build_command(12345678, "123456", 1, _login_data()),
-        build_command(12345678, "123456", 2, _login_data()),
+        _evse_packet(1, _login_data()),
+        _evse_packet(2, _login_data()),
     ]
+
+
+def _evse_packet(command: int, data: list[int] | None = None) -> bytes:
+    """Build a charger-originated packet with its real placeholder password."""
+
+    packet = bytearray(build_command(12345678, "123456", command, data))
+    packet[5:13] = bytes.fromhex(EVSE_IDENTIFIER)
+    packet[13:19] = b"\xff" * 6
+    packet[-4:-2] = (sum(packet[:-4]) % 0xFFFF).to_bytes(2, "big")
+    return bytes(packet)
+
+
+def _written_commands(fake_client: _FakeBleakClient) -> Counter[int]:
+    """Count protocol commands written to a fake charger."""
+
+    return Counter(parse_packet(write[1]).command for write in fake_client.writes)
 
 
 def _client(
@@ -131,6 +193,7 @@ def _client(
     """Create a client wired to fake BLE dependencies."""
 
     async def _establish_connection(*args: Any, **kwargs: Any) -> _FakeBleakClient:
+        fake_client.disconnected_callback = kwargs["disconnected_callback"]
         return fake_client
 
     monkeypatch.setattr(client_module, "establish_connection", _establish_connection)
@@ -143,6 +206,33 @@ def _client(
     )
 
 
+def _client_with_connections(
+    fake_clients: list[_FakeBleakClient],
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[BesenClient, list[_FakeBleakClient]]:
+    """Create a client that uses a new fake BLE connection for each attempt."""
+
+    remaining = iter(fake_clients)
+    established: list[_FakeBleakClient] = []
+
+    async def _establish_connection(*args: Any, **kwargs: Any) -> _FakeBleakClient:
+        del args
+        fake_client = next(remaining)
+        fake_client.disconnected_callback = kwargs["disconnected_callback"]
+        established.append(fake_client)
+        return fake_client
+
+    monkeypatch.setattr(client_module, "establish_connection", _establish_connection)
+    client = BesenClient(
+        address="AA:BB:CC:DD:EE:FF",
+        pin="123456",
+        ble_device_provider=lambda: cast(BLEDevice, _BleDevice()),
+        logger=logging.getLogger(__name__),
+        advertised_name="ACP#Garage",
+    )
+    return client, established
+
+
 def test_unavailable_warning_is_rate_limited(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -150,7 +240,7 @@ def test_unavailable_warning_is_rate_limited(
     """Repeated unavailable warnings are throttled."""
 
     client = _client(_FakeBleakClient([]), monkeypatch)
-    times = chain([100.0, 200.0, 701.0], repeat(701.0))
+    times = iter([100.0, 200.0, 701.0])
     monkeypatch.setattr("besen.client.time.monotonic", lambda: next(times))
 
     with caplog.at_level(logging.WARNING):
@@ -255,13 +345,14 @@ async def test_client_selects_revised_and_old_characteristics(
 async def test_client_raises_invalid_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     """A charger auth rejection raises InvalidAuth."""
 
-    fake_bleak = _FakeBleakClient([build_command(12345678, "123456", 341)])
+    fake_bleak = _FakeBleakClient([_evse_packet(1, _login_data()), _evse_packet(341)])
     client = _client(fake_bleak, monkeypatch)
 
     with pytest.raises(InvalidAuth):
         await client.async_start()
 
     assert client.state.authenticated is False
+    assert fake_bleak.disconnected is True
     await client.async_stop()
 
 
@@ -306,24 +397,261 @@ async def test_client_connect_timeout_and_connection_failure(
 ) -> None:
     """Connection timeout and establish failures raise CannotConnect."""
 
-    fake_bleak = _FakeBleakClient([])
-    timeout_client = _client(fake_bleak, monkeypatch)
-    monkeypatch.setattr(client_module, "LOGIN_TIMEOUT", 0.01)
+    silent_connections = [_FakeBleakClient([]) for _ in range(3)]
+    timeout_client, established = _client_with_connections(
+        silent_connections,
+        monkeypatch,
+    )
+    monkeypatch.setattr(client_module, "SILENT_LOGIN_TIMEOUT", 0.01)
+    monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
 
     with pytest.raises(CannotConnect, match="Timed out"):
         await timeout_client.async_start()
-    await timeout_client.async_stop()
+
+    assert established == silent_connections
+    assert all(connection.disconnected for connection in silent_connections)
+    assert timeout_client.is_connected is False
 
     async def _fail_connect(*args: Any, **kwargs: Any) -> _FakeBleakClient:
         del args, kwargs
         raise OSError("no route")
 
     monkeypatch.setattr(client_module, "establish_connection", _fail_connect)
-    failing_client = _client(fake_bleak, monkeypatch)
+    failing_client = _client(_FakeBleakClient([]), monkeypatch)
     monkeypatch.setattr(client_module, "establish_connection", _fail_connect)
 
     with pytest.raises(CannotConnect, match="Unable to connect"):
         await failing_client.async_start()
+
+
+@pytest.mark.asyncio
+async def test_client_retries_completely_silent_login(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two silent connections are replaced before a third login succeeds."""
+
+    first = _FakeBleakClient([])
+    second = _FakeBleakClient([])
+    successful = _FakeBleakClient(_login_packets())
+    client, established = _client_with_connections(
+        [first, second, successful],
+        monkeypatch,
+    )
+    monkeypatch.setattr(client_module, "SILENT_LOGIN_TIMEOUT", 0.01)
+    monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
+
+    await client.async_start()
+
+    assert established == [first, second, successful]
+    assert first.disconnected is True
+    assert second.disconnected is True
+    assert successful.disconnected is False
+    assert client.state.authenticated is True
+    await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_client_keeps_live_stale_session_open_for_delayed_login(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Normal traffic extends login wait while pre-auth heartbeats stay unanswered."""
+
+    fake_bleak = _DelayedLoginBleakClient(0.02)
+    client = _client(fake_bleak, monkeypatch)
+    monkeypatch.setattr(client_module, "SILENT_LOGIN_TIMEOUT", 0.01)
+    monkeypatch.setattr(client_module, "LOGIN_TIMEOUT", 0.05)
+
+    await client.async_start()
+    async with client._packet_lock:
+        pass
+
+    assert client.state.authenticated is True
+    assert fake_bleak.disconnected is False
+    assert _written_commands(fake_bleak)[32771] == 0
+    await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_client_cleans_up_incomplete_non_silent_login(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A partial login uses the total timeout and releases its BLE client."""
+
+    incomplete = _FakeBleakClient([_login_packets()[0]])
+    client, established = _client_with_connections([incomplete], monkeypatch)
+    monkeypatch.setattr(client_module, "SILENT_LOGIN_TIMEOUT", 0.01)
+    monkeypatch.setattr(client_module, "LOGIN_TIMEOUT", 0.02)
+
+    with pytest.raises(CannotConnect, match="Timed out"):
+        await client.async_start()
+
+    assert established == [incomplete]
+    assert incomplete.disconnected is True
+    assert client.is_connected is False
+    assert client.state.available is False
+    await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_client_gates_repeated_login_packets_and_clock_sync(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Repeated charger login beacons produce one reply and one refresh."""
+
+    fake_bleak = _FakeBleakClient(_login_packets() * 5)
+    client = _client(fake_bleak, monkeypatch)
+
+    await client.async_start()
+    async with client._packet_lock:
+        pass
+    await client._async_handle_packet(3, b"", client.state.info.serial or "")
+    await client._async_handle_packet(3, b"", client.state.info.serial or "")
+
+    commands = _written_commands(fake_bleak)
+    clock_packets = [
+        parse_packet(write[1])
+        for write in fake_bleak.writes
+        if parse_packet(write[1]).command == 33025
+    ]
+    assert commands[32770] == 1
+    assert commands[32769] == 1
+    assert commands[33042] == 1
+    assert commands[33030] == 1
+    assert commands[32771] == 2
+    assert sum(packet.data[0] == 1 for packet in clock_packets) == 1
+    await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_client_requires_login_request_before_confirming(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An early retained cmd2 cannot authenticate the new GATT connection."""
+
+    packets = [
+        _evse_packet(2, _login_data()),
+        _evse_packet(1, _login_data()),
+        _evse_packet(2, _login_data()),
+    ]
+    fake_bleak = _FakeBleakClient(packets)
+    client = _client(fake_bleak, monkeypatch)
+
+    await client.async_start()
+    async with client._packet_lock:
+        pass
+
+    commands = _written_commands(fake_bleak)
+    assert commands[32770] == 1
+    assert commands[32769] == 1
+    assert client.state.authenticated is True
+    await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_client_rate_limits_but_retries_unanswered_login_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Repeated cmd1 can retry a lost write without creating a tight storm."""
+
+    fake_bleak = _FakeBleakClient(_login_packets())
+    client = _client(fake_bleak, monkeypatch)
+    await client.async_start()
+    async with client._packet_lock:
+        pass
+    baseline = _written_commands(fake_bleak)[32770]
+    client._set_state(authenticated=False)
+    client._last_login_request = None
+    clock = [100.0]
+    with monkeypatch.context() as clock_patch:
+        clock_patch.setattr(
+            "besen.client.time.monotonic",
+            lambda: clock[0],
+        )
+        await client._async_handle_packet(
+            1,
+            bytes(_login_data()),
+            EVSE_IDENTIFIER,
+        )
+        clock[0] = 101.0
+        await client._async_handle_packet(
+            1,
+            bytes(_login_data()),
+            EVSE_IDENTIFIER,
+        )
+        clock[0] = 106.0
+        await client._async_handle_packet(
+            1,
+            bytes(_login_data()),
+            EVSE_IDENTIFIER,
+        )
+
+    assert _written_commands(fake_bleak)[32770] == baseline + 2
+    await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_client_waits_out_stale_session_then_logs_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pre-login traffic gets no heartbeat until a fresh login exchange."""
+
+    first = _FakeBleakClient(_login_packets())
+    reconnected = _FakeBleakClient([_evse_packet(3), *_login_packets()])
+    client, established = _client_with_connections([first, reconnected], monkeypatch)
+
+    await client.async_start()
+    async with client._packet_lock:
+        pass
+    await client._connect_and_login()
+    async with client._packet_lock:
+        pass
+
+    assert established == [first, reconnected]
+    assert first.disconnected is True
+    assert client.state.authenticated is True
+    assert _written_commands(reconnected)[32770] == 1
+    assert _written_commands(reconnected)[32769] == 1
+    assert _written_commands(reconnected)[32771] == 0
+
+    assert first.disconnected_callback is not None
+    first.disconnected_callback(first)
+    assert client.state.available is True
+    assert client.state.authenticated is True
+    await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_new_client_does_not_authenticate_from_operational_traffic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ordinary packets never stand in for the charger login exchange."""
+
+    ordinary = _FakeBleakClient([_evse_packet(3)])
+    client, established = _client_with_connections([ordinary], monkeypatch)
+    monkeypatch.setattr(client_module, "SILENT_LOGIN_TIMEOUT", 0.01)
+    monkeypatch.setattr(client_module, "LOGIN_TIMEOUT", 0.02)
+
+    with pytest.raises(CannotConnect, match="Timed out"):
+        await client.async_start()
+
+    assert established == [ordinary]
+    assert ordinary.writes == []
+    assert ordinary.disconnected is True
+    assert client.state.authenticated is False
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_before_serial_is_deferred(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A pre-login heartbeat cannot fail a background packet task."""
+
+    client = _client(_FakeBleakClient([]), monkeypatch)
+
+    await client._async_handle_packet(3, b"", "4e61bc0000000000")
+
+    assert client.state.info.serial is None
+    assert client.state.authenticated is False
 
 
 @pytest.mark.asyncio
@@ -434,3 +762,262 @@ async def test_client_disconnect_notification_and_send_preconditions(
     assert client.state.info.hardware_version == "fallback"
     assert client.state.info.software_version == "fallback"
     await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_disconnect_during_initial_login_has_one_connection_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A startup disconnect cannot launch a parallel reconnect workflow."""
+
+    fake_bleak = _FakeBleakClient([])
+    client, established = _client_with_connections([fake_bleak], monkeypatch)
+    monkeypatch.setattr(client_module, "SILENT_LOGIN_TIMEOUT", 60)
+    monkeypatch.setattr(client_module, "RECONNECT_DELAY", 60)
+    start_task = asyncio.create_task(client.async_start())
+    for _ in range(10):
+        await asyncio.sleep(0)
+        if fake_bleak.disconnected_callback is not None:
+            break
+
+    assert fake_bleak.disconnected_callback is not None
+    fake_bleak.is_connected = False
+    fake_bleak.disconnected = True
+    fake_bleak.disconnected_callback(fake_bleak)
+    await asyncio.sleep(0)
+
+    assert established == [fake_bleak]
+    assert client._connect_lock.locked() is True
+    assert client._reconnect_task is None
+    assert client.state.available is False
+
+    start_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await start_task
+    await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_async_stop_cancels_live_initial_login_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Shutdown waits for startup cleanup and prevents later reconnect attempts."""
+
+    fake_bleak = _FakeBleakClient([])
+    client, established = _client_with_connections([fake_bleak], monkeypatch)
+    monkeypatch.setattr(client_module, "SILENT_LOGIN_TIMEOUT", 60)
+    start_task = asyncio.create_task(client.async_start())
+    for _ in range(10):
+        await asyncio.sleep(0)
+        if fake_bleak.disconnected_callback is not None:
+            break
+
+    assert established == [fake_bleak]
+    assert fake_bleak.disconnected_callback is not None
+    await client.async_stop()
+    await asyncio.sleep(0)
+
+    assert start_task.cancelled() is True
+    assert established == [fake_bleak]
+    assert fake_bleak.disconnected is True
+    assert client._client is None
+
+
+@pytest.mark.asyncio
+async def test_disconnect_during_start_notify_is_not_clobbered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A subscribe-time disconnect remains unavailable and aborts setup."""
+
+    fake_bleak = _FakeBleakClient([])
+    fake_bleak.disconnect_on_notify = True
+    client = _client(fake_bleak, monkeypatch)
+
+    with pytest.raises(CannotConnect, match="notifications were starting"):
+        await client.async_start()
+
+    assert client.state.available is False
+    assert client.state.authenticated is False
+    assert client._reconnect_task is None
+    await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_failed_disconnect_retains_client_handle_for_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed teardown cannot be followed by a second BLE connection."""
+
+    fake_bleak = _FakeBleakClient(_login_packets())
+    client = _client(fake_bleak, monkeypatch)
+    await client.async_start()
+    async with client._packet_lock:
+        pass
+    fake_bleak.fail_disconnect = True
+
+    with pytest.raises(CannotConnect, match="release the existing"):
+        await client._disconnect_client()
+
+    assert cast(Any, client._client) is fake_bleak
+    assert fake_bleak.is_connected is True
+
+    fake_bleak.fail_disconnect = False
+    await client.async_stop()
+    assert fake_bleak.disconnected is True
+
+
+@pytest.mark.asyncio
+async def test_queued_command_revalidates_client_inside_write_lock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A queued write uses the current client rather than a retired session."""
+
+    first = _FakeBleakClient(_login_packets())
+    client = _client(first, monkeypatch)
+    await client.async_start()
+    async with client._packet_lock:
+        pass
+    first_write_count = len(first.writes)
+    replacement = _FakeBleakClient([])
+
+    await client._command_lock.acquire()
+    send_task = asyncio.create_task(client._send_heartbeat())
+    await asyncio.sleep(0)
+    first.is_connected = False
+    first.disconnected = True
+    client._client = cast(Any, replacement)
+    client._command_lock.release()
+    await send_task
+
+    assert len(first.writes) == first_write_count
+    assert _written_commands(replacement)[32771] == 1
+    await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_stale_write_failure_cannot_break_replacement_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A retired client's late write error cannot mutate the new generation."""
+
+    first = _FakeBleakClient(_login_packets())
+    replacement = _FakeBleakClient(_login_packets())
+    client, established = _client_with_connections([first, replacement], monkeypatch)
+    await client.async_start()
+    async with client._packet_lock:
+        pass
+    first.write_started = asyncio.Event()
+    first.write_release = asyncio.Event()
+    first.fail_write = True
+    stale_write = asyncio.create_task(client._send_heartbeat())
+    await first.write_started.wait()
+
+    monkeypatch.setattr(client, "_schedule_reconnect", lambda: None)
+    assert first.disconnected_callback is not None
+    first.is_connected = False
+    first.disconnected = True
+    first.disconnected_callback(first)
+    reconnect = asyncio.create_task(client._connect_and_login())
+    for _ in range(10):
+        await asyncio.sleep(0)
+        if established == [first, replacement]:
+            break
+
+    assert established == [first, replacement]
+    first.write_release.set()
+    with pytest.raises(CommandFailed, match="Failed to send heartbeat"):
+        await stale_write
+    await reconnect
+    async with client._packet_lock:
+        pass
+
+    assert cast(Any, client._client) is replacement
+    assert client._connection_error is None
+    assert client.state.available is True
+    assert client.state.authenticated is True
+    await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_reconnect_loop_retries_then_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reconnect owner persists through a failure and validates success."""
+
+    client = _client(_FakeBleakClient([]), monkeypatch)
+    replacement = _FakeBleakClient([])
+    attempts = 0
+
+    async def _connect_and_login() -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise CannotConnect("temporary failure")
+        client._client = cast(Any, replacement)
+        client._characteristics = CharacteristicPair(
+            read_uuid=READ_UUID,
+            write_uuid=WRITE_UUID,
+            board_revision=BoardRevision.OLD,
+        )
+        client._set_state(available=True, authenticated=True)
+
+    monkeypatch.setattr(client, "_connect_and_login", _connect_and_login)
+    monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
+
+    await client._reconnect_loop()
+
+    assert attempts == 2
+    assert client.state.authenticated is True
+    await client.async_stop()
+
+
+@pytest.mark.asyncio
+async def test_watchdog_marks_unavailable_and_requests_reconnect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Notification inactivity marks state down and invokes reconnection."""
+
+    client = _client(_FakeBleakClient([]), monkeypatch)
+    client._last_message = 0
+    scheduled = False
+
+    def _schedule_reconnect() -> None:
+        nonlocal scheduled
+        scheduled = True
+        client._stopping = True
+
+    monkeypatch.setattr(client, "_schedule_reconnect", _schedule_reconnect)
+    monkeypatch.setattr(client_module, "MESSAGE_TIMEOUT", 0)
+    with monkeypatch.context() as clock_patch:
+        clock_patch.setattr("besen.client.time.monotonic", lambda: 10.0)
+        await client._watchdog_loop()
+
+    assert scheduled is True
+    assert client.state.available is False
+    assert client.state.authenticated is False
+    assert client.state.last_error == "No notifications received; reconnecting"
+
+
+@pytest.mark.asyncio
+async def test_async_stop_reports_persistent_disconnect_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Shutdown retries teardown and records a link it could not release."""
+
+    fake_bleak = _FakeBleakClient(_login_packets())
+    client = _client(fake_bleak, monkeypatch)
+    await client.async_start()
+    async with client._packet_lock:
+        pass
+    fake_bleak.fail_disconnect = True
+
+    await client.async_stop()
+
+    assert cast(Any, client._client) is fake_bleak
+    assert client.state.available is False
+    assert client.state.last_error == (
+        "Unable to release the existing Besen BLE connection"
+    )
+
+    fake_bleak.fail_disconnect = False
+    await client._disconnect_client()
