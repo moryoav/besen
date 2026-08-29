@@ -268,6 +268,15 @@ def convert_temperature(temp_c: float) -> float:
     return round(temp_c * 9 / 5 + 32, 2)
 
 
+def _parse_temperature(data: bytes, offset: int) -> float | None:
+    """Parse a charger temperature, returning None for invalid sentinels."""
+
+    raw_value = bytes_to_integer(data[offset : offset + 2])
+    if raw_value in {0x00FF, 0xFFFF}:
+        return None
+    return round((raw_value - 20000) * 0.01, 1)
+
+
 def get_failure_details(error_info: str) -> str:
     """Return a human-readable error from the bit field."""
 
@@ -342,17 +351,15 @@ def parse_single_ac_status(data: bytes, _identifier: str) -> dict[str, Any]:
     """Parse live single/three-phase AC status."""
 
     if len(data) < 25:
-        error_info = f"{int(data[21]):08b}{int(data[22]):08b}"
-    else:
-        error_info = (
-            f"{int(data[21]):08b}{int(data[22]):08b}"
-            f"{int(data[23]):08b}{int(data[24]):08b}"
-        )
+        raise ProtocolError("AC status payload is shorter than 25 bytes")
+
+    error_info = (
+        f"{int(data[21]):08b}{int(data[22]):08b}{int(data[23]):08b}{int(data[24]):08b}"
+    )
     plug_state_code = byte_to_integer(data[18])
     current_state_code = byte_to_integer(data[20])
     status_code = charging_status(plug_state_code, current_state_code)
-    inner_raw = bytes_to_integer(data[13:15])
-    inner_temp_c = -1.0 if inner_raw == 255 else round((inner_raw - 20000) * 0.01, 1)
+    inner_temp_c = _parse_temperature(data, 13)
 
     status: dict[str, Any] = {
         "line_id": bytes_to_integer(data[0:1]),
@@ -360,20 +367,18 @@ def parse_single_ac_status(data: bytes, _identifier: str) -> dict[str, Any]:
         "error_details": get_failure_details(error_info),
         "l1_voltage": round(bytes_to_integer(data[1:3]) * 0.1, 1),
         "l1_amperage": round(bytes_to_integer(data[3:5]) * 0.01, 1),
-        "total_energy": round(bytes_to_int_little(data[5:9]) / 1000, 2),
-        "current_amount": round(bytes_to_integer(data[9:13]) * 0.01, 1),
+        "power": bytes_to_integer(data[5:9]),
+        "total_energy": round(bytes_to_integer(data[9:13]) * 0.01, 2),
         "inner_temp_c": inner_temp_c,
-        "inner_temp_f": convert_temperature(inner_temp_c),
-        "outer_temp": (
-            -1.0
-            if bytes_to_integer(data[15:17]) == 255
-            else round((bytes_to_integer(data[15:17]) - 20000) * 0.01, 1)
+        "inner_temp_f": (
+            convert_temperature(inner_temp_c) if inner_temp_c is not None else None
         ),
+        "outer_temp": _parse_temperature(data, 15),
         "emergency_btn_state": byte_to_integer(data[17]),
         "plug_state": _safe_list_value(PLUG_STATE, plug_state_code),
         "output_state": _safe_list_value(OUTPUT_STATE, byte_to_integer(data[19])),
         "current_state": _safe_list_value(CURRENT_STATE, current_state_code),
-        "new_protocol": len(data) > 33,
+        "new_protocol": len(data) >= 33,
         "charging_status": CHARGING_STATUS.get(status_code or 0),
         "charging_status_description": CHARGING_STATUS_DESCRIPTIONS.get(
             status_code or 0
@@ -381,21 +386,23 @@ def parse_single_ac_status(data: bytes, _identifier: str) -> dict[str, Any]:
         "charger_status": bool(CHARGER_STATUS.get(status_code or 0, 0)),
     }
 
-    l1_power = status["l1_voltage"] * status["l1_amperage"]
-    status["current_energy"] = l1_power if l1_power else 0
-
-    if len(data) > 33:
+    if len(data) >= 33:
         status["l2_voltage"] = round(bytes_to_integer(data[25:27]) * 0.1, 1)
         status["l2_amperage"] = round(bytes_to_integer(data[27:29]) * 0.01, 1)
         status["l3_voltage"] = round(bytes_to_integer(data[29:31]) * 0.1, 1)
         status["l3_amperage"] = round(bytes_to_integer(data[31:33]) * 0.01, 1)
-        status["current_energy"] = round(
-            l1_power
-            + status["l2_voltage"] * status["l2_amperage"]
-            + status["l3_voltage"] * status["l3_amperage"]
-        )
 
     return status
+
+
+def parse_single_ac_charging_status(data: bytes, _identifier: str) -> dict[str, Any]:
+    """Parse the current or completed charging session status."""
+
+    if len(data) < 74:
+        raise ProtocolError("Charging status payload is shorter than 74 bytes")
+    return {
+        "session_energy": round(bytes_to_integer(data[63:67]) * 0.01, 2),
+    }
 
 
 def parse_output_amps(data: bytes, _identifier: str) -> dict[str, Any]:
@@ -471,8 +478,8 @@ PARSERS = {
     1: parse_login,
     2: parse_login,
     4: parse_single_ac_status,
-    5: lambda data, identifier: {},
-    6: lambda data, identifier: {},
+    5: parse_single_ac_charging_status,
+    6: parse_single_ac_charging_status,
     7: parse_charge_start,
     8: parse_charge_stop,
     13: parse_single_ac_status,

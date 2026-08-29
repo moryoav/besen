@@ -123,9 +123,9 @@ def _state(*, phases: int = 3) -> BesenData:
         ),
         charge=ChargeStatus(
             charger_status=True,
-            current_energy=3500,
-            total_energy=1.2,
-            current_amount=12.3,
+            power=3500,
+            total_energy=12.3,
+            session_energy=1.2,
             inner_temp_c=24.5,
             l1_voltage=230.0,
             l1_amperage=15.2,

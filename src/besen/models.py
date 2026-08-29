@@ -81,8 +81,9 @@ class ChargeStatus:
     l2_amperage: float | None = None
     l3_voltage: float | None = None
     l3_amperage: float | None = None
+    power: int | None = None
     total_energy: float | None = None
-    current_amount: float | None = None
+    session_energy: float | None = None
     inner_temp_c: float | None = None
     inner_temp_f: float | None = None
     outer_temp: float | None = None
@@ -91,7 +92,6 @@ class ChargeStatus:
     output_state: str | None = None
     current_state: str | None = None
     new_protocol: bool | None = None
-    current_energy: float | None = None
     charging_status: str | None = None
     charging_status_description: str | None = None
     charger_status: bool | None = None

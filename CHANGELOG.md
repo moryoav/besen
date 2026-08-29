@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.4.0] - 2026-08-29
+
+### Added
+
+- Added session energy parsing for charging status commands 5 and 6.
+
+### Changed
+
+- Replaced the misleading `current_energy` and `current_amount` fields with `power`, `total_energy`, and `session_energy` fields that match the charger protocol.
+- Return `None` for invalid temperature values and reject incomplete status payloads.
+- Parse three-phase data from the protocol's exact 33-byte payload length.
+- Updated the bundled Home Assistant custom integration to use the corrected telemetry fields and entity names.
+
 ## [0.3.4] - 2026-08-21
 
 ### Fixed

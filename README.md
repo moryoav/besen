@@ -60,8 +60,10 @@ async def main() -> None:
             data.available,
             "charging=",
             data.charge.charger_status,
-            "amps=",
-            data.config.charge_amps,
+            "power_w=",
+            data.charge.power,
+            "session_kwh=",
+            data.charge.session_energy,
         )
 
     remove_listener = client.add_listener(handle_update)
@@ -133,10 +135,23 @@ Important fields:
   board revision.
 - `BesenData.config`: configuration values such as charge amps, device name,
   language, temperature unit, LCD brightness, and RSSI.
-- `BesenData.charge`: live charging state such as voltage, amperage, energy,
+- `BesenData.charge`: live charging state such as voltage, current, energy,
   temperature, plug state, output state, and charger status.
 - `BesenData.last_command`: last parsed command response.
 - `BesenData.last_error`: last connection, protocol, or command error string.
+
+Important telemetry fields:
+
+- `BesenData.charge.power`: charger-reported charging power in watts.
+- `BesenData.charge.total_energy`: lifetime energy counter in kWh.
+- `BesenData.charge.session_energy`: energy delivered during the current or most
+  recently completed charging session in kWh.
+- `BesenData.charge.inner_temp_c` and `BesenData.charge.outer_temp`: temperatures
+  in Celsius, or `None` when the charger reports an invalid value.
+- `BesenData.charge.l1_voltage`, `l2_voltage`, and `l3_voltage`: phase voltages in
+  volts. L2 and L3 are populated only when the charger sends three-phase data.
+- `BesenData.charge.l1_amperage`, `l2_amperage`, and `l3_amperage`: phase currents
+  in amperes. L2 and L3 are populated only when the charger sends three-phase data.
 
 ## Exceptions
 

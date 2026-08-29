@@ -6,6 +6,7 @@ import pytest
 
 from besen.exceptions import ProtocolError
 from besen.protocol import (
+    PARSERS,
     PacketAssembler,
     build_command,
     bytes_to_int_little,
@@ -24,6 +25,7 @@ from besen.protocol import (
     parse_name,
     parse_output_amps,
     parse_packet,
+    parse_single_ac_charging_status,
     parse_single_ac_status,
     parse_system_language,
     parse_system_time,
@@ -166,11 +168,11 @@ def test_parse_login_response() -> None:
 def test_parse_single_ac_status_three_phase() -> None:
     """AC status parser extracts electrical values and charger state."""
 
-    data = bytearray(34)
+    data = bytearray(33)
     data[0] = 1
     data[1:3] = (2300).to_bytes(2, "big")
     data[3:5] = (1600).to_bytes(2, "big")
-    data[5:9] = bytes([0, 0, 0, 42])
+    data[5:9] = (7420).to_bytes(4, "big")
     data[9:13] = (1234).to_bytes(4, "big")
     data[13:15] = (22500).to_bytes(2, "big")
     data[15:17] = (23000).to_bytes(2, "big")
@@ -187,6 +189,8 @@ def test_parse_single_ac_status_three_phase() -> None:
 
     assert status["l1_voltage"] == 230.0
     assert status["l1_amperage"] == 16.0
+    assert status["power"] == 7420
+    assert status["total_energy"] == 12.34
     assert status["inner_temp_c"] == 25.0
     assert status["outer_temp"] == 30.0
     assert status["plug_state"] == "Connected Locked"
@@ -196,33 +200,69 @@ def test_parse_single_ac_status_three_phase() -> None:
     assert status["charger_status"] is True
     assert status["l2_voltage"] == 231.0
     assert status["l3_amperage"] == 9.0
-    assert status["current_energy"] == 8078
+    assert status["new_protocol"] is True
 
 
-def test_parse_single_ac_status_handles_short_unknown_values() -> None:
-    """Status parser handles short packets and unknown enum indexes."""
+@pytest.mark.parametrize("temperature_sentinel", [0x00FF, 0xFFFF])
+def test_parse_single_ac_status_handles_unknown_values(
+    temperature_sentinel: int,
+) -> None:
+    """Status parser returns None for invalid temperatures and keeps zero power."""
 
-    data = bytearray(24)
+    data = bytearray(25)
     data[0] = 1
     data[1:3] = (2300).to_bytes(2, "big")
     data[3:5] = (0).to_bytes(2, "big")
+    data[5:9] = (0).to_bytes(4, "big")
     data[9:13] = (100).to_bytes(4, "big")
-    data[13:15] = (255).to_bytes(2, "big")
-    data[15:17] = (255).to_bytes(2, "big")
+    data[13:15] = temperature_sentinel.to_bytes(2, "big")
+    data[15:17] = temperature_sentinel.to_bytes(2, "big")
     data[18] = 99
     data[19] = 99
     data[20] = 99
-    data[21:23] = b"\x00\x01"
+    data[21:25] = b"\x00\x00\x00\x01"
 
     status = parse_single_ac_status(bytes(data), "12345678")
 
-    assert status["inner_temp_c"] == -1.0
-    assert status["outer_temp"] == -1.0
+    assert status["power"] == 0
+    assert status["total_energy"] == 1.0
+    assert status["inner_temp_c"] is None
+    assert status["inner_temp_f"] is None
+    assert status["outer_temp"] is None
     assert status["plug_state"] == "Unknown 99"
     assert status["output_state"] == "Unknown 99"
     assert status["current_state"] == "Unknown 99"
     assert status["new_protocol"] is False
-    assert status["current_energy"] == 0
+    assert "l2_voltage" not in status
+
+
+def test_parse_single_ac_status_rejects_short_payload() -> None:
+    """AC status parser rejects incomplete payloads."""
+
+    with pytest.raises(ProtocolError, match="shorter than 25"):
+        parse_single_ac_status(bytes(24), "12345678")
+
+
+@pytest.mark.parametrize("command", [5, 6])
+def test_parse_single_ac_charging_status(command: int) -> None:
+    """Charging status parser extracts session energy from commands 5 and 6."""
+
+    data = bytearray(74)
+    data[63:67] = (456).to_bytes(4, "big")
+
+    status = PARSERS[command](bytes(data), "12345678")
+
+    assert status == {"session_energy": 4.56}
+
+
+def test_parse_single_ac_charging_status_handles_zero_and_short_payload() -> None:
+    """Charging status parser preserves zero and rejects incomplete payloads."""
+
+    assert parse_single_ac_charging_status(bytes(74), "12345678") == {
+        "session_energy": 0.0
+    }
+    with pytest.raises(ProtocolError, match="shorter than 74"):
+        parse_single_ac_charging_status(bytes(73), "12345678")
 
 
 def test_device_name_bytes_are_prefixed_and_padded() -> None:

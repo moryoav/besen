@@ -679,7 +679,7 @@ class BesenClient:
                 await self._async_sync_clock_if_due()
             return
 
-        if command in (4, 13):
+        if command in (4, 5, 6, 13):
             self._set_state(charge=self._state.charge.updated(**values))
             return
 

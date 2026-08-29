@@ -665,6 +665,7 @@ async def test_client_packet_handler_branches(
     await client.async_start()
 
     monkeypatch.setitem(PARSERS, 4, lambda data, ident: {"line_id": 1})
+    monkeypatch.setitem(PARSERS, 5, lambda data, ident: {"session_energy": 2.5})
     monkeypatch.setitem(PARSERS, 257, lambda data, ident: {"rssi": -50})
     monkeypatch.setitem(
         PARSERS,
@@ -684,6 +685,7 @@ async def test_client_packet_handler_branches(
 
     await client._async_handle_packet(3, b"", "")
     await client._async_handle_packet(4, b"", "")
+    await client._async_handle_packet(5, b"", "")
     await client._async_handle_packet(257, b"", "")
     await client._async_handle_packet(262, b"", "")
     await client._async_handle_packet(7, b"", "")
@@ -697,6 +699,7 @@ async def test_client_packet_handler_branches(
     await client._async_handle_packet(999, b"", "")
 
     assert client.state.charge.line_id == 1
+    assert client.state.charge.session_energy == 2.5
     assert client.state.config.rssi == -50
     assert client.state.info.hardware_version == "HW2"
     assert client.state.last_command is not None
