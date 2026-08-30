@@ -299,6 +299,9 @@ async def test_client_public_commands_and_listeners(
     await client.async_set_temperature_unit("Celcius")
     await client.async_set_language("Deutsch")
     await client.async_set_device_name("Garage")
+    assert client.state.config.lcd_brightness == 100
+    assert client.state.config.temperature_unit == "Celsius"
+    assert client.state.config.language == "Deutsch"
     update_count = len(updates)
     remove_listener()
     client._set_state(available=True)

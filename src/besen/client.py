@@ -235,6 +235,7 @@ class BesenClient:
             [0, 2, value, 0, 0, 0, 0, 0],
             name="set_lcd_brightness",
         )
+        self._set_state(config=self._state.config.updated(lcd_brightness=value))
 
     async def async_set_temperature_unit(self, unit: str) -> None:
         """Set the charger temperature unit."""
@@ -247,6 +248,7 @@ class BesenClient:
             [1, TEMPERATURE_UNITS[unit]],
             name="set_temperature_unit",
         )
+        self._set_state(config=self._state.config.updated(temperature_unit=unit))
 
     async def async_set_language(self, language: str) -> None:
         """Set the app language stored on the charger."""
@@ -258,6 +260,7 @@ class BesenClient:
             [1, LANGUAGES[language]],
             name="set_language",
         )
+        self._set_state(config=self._state.config.updated(language=language))
 
     async def async_set_device_name(self, name: str) -> None:
         """Set the charger's advertised name."""
