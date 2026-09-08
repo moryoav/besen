@@ -18,8 +18,9 @@ the version constant, and `CHANGELOG.md` aligned when preparing a release.
 
 Core contributions belong in branches of the Home Assistant fork, with separate
 dependency and platform pull requests. Keep supported features in the custom
-integration while Core reviews are pending. The next planned compatibility
-release is 0.4.2; do not publish it before the charger changes are validated.
+integration while Core reviews are pending. Validate compatibility changes with
+regression tests and available device captures, and state any outstanding
+hardware validation in the release notes.
 
 Contributions are welcome, including bug reports, documentation improvements,
 compatibility reports, BLE reliability fixes, security hardening, and focused

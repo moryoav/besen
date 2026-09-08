@@ -22,6 +22,7 @@ class CharacteristicPair:
     read_uuid: str
     write_uuid: str
     board_revision: BoardRevision
+    write_with_response: bool = False
 
 
 @dataclass(slots=True, frozen=True)

@@ -35,13 +35,37 @@ from besen.protocol import PARSERS, build_command, parse_packet
 EVSE_IDENTIFIER = "8949281891483449"
 
 
+class _Characteristic:
+    """Discovered GATT characteristic with explicit capabilities."""
+
+    def __init__(self, uuid: str, properties: list[str]) -> None:
+        self.uuid = uuid
+        self.properties = properties
+
+
 class _Service:
     """Fake BLE service."""
 
-    def __init__(self, uuid: str) -> None:
+    def __init__(self, uuid: str, characteristics: list[_Characteristic]) -> None:
         """Initialize the service."""
 
         self.uuid = uuid
+        self.characteristics = characteristics
+
+
+class _Services(list[_Service]):
+    """Minimal discovered service collection."""
+
+    def get_characteristic(self, uuid: str) -> _Characteristic | None:
+        return next(
+            (
+                char
+                for service in self
+                for char in service.characteristics
+                if char.uuid == uuid
+            ),
+            None,
+        )
 
 
 class _BleDevice:
@@ -56,13 +80,23 @@ class _FakeBleakClient:
         packets: list[bytes],
         *,
         service_uuid: str | None = None,
+        characteristics: list[_Characteristic] | None = None,
     ) -> None:
         """Initialize the fake client."""
 
         self.is_connected = True
-        self.services = [
-            _Service(service_uuid or "0000fff0-0000-1000-8000-00805f9b34fb")
-        ]
+        service_uuid = service_uuid or "0000fff0-0000-1000-8000-00805f9b34fb"
+        if characteristics is None:
+            read_uuid, write_uuid = READ_UUID, WRITE_UUID
+            if service_uuid.startswith(NEW_BOARD_SERVICE_PREFIXES):
+                read_uuid, write_uuid = NEW_BOARD_READ_UUID, NEW_BOARD_WRITE_UUID
+            elif service_uuid.startswith(REV_BOARD_SERVICE_PREFIXES):
+                read_uuid, write_uuid = REV_READ_UUID, REV_WRITE_UUID
+            characteristics = [
+                _Characteristic(read_uuid, ["read", "notify"]),
+                _Characteristic(write_uuid, ["write", "write-without-response"]),
+            ]
+        self.services = _Services([_Service(service_uuid, characteristics)])
         self.packets = packets
         self.writes: list[tuple[str, bytes, bool]] = []
         self.stopped_notifications: list[str] = []
@@ -118,6 +152,12 @@ class _FakeBleakClient:
             await self.write_release.wait()
         if self.fail_write:
             raise OSError("write failed")
+        char = self.services.get_characteristic(uuid)
+        if char is None:
+            raise OSError("Characteristic not found")
+        property_name = "write" if response else "write-without-response"
+        if property_name not in char.properties:
+            raise OSError("Unsupported write mode")
         self.writes.append((uuid, data, response))
 
 
@@ -275,6 +315,7 @@ async def test_client_login_selects_new_board_characteristics(
     assert client.state.info.board_revision == BoardRevision.NEW
     assert fake_bleak.writes
     assert {write[0] for write in fake_bleak.writes} == {NEW_BOARD_WRITE_UUID}
+    assert all(write[2] is False for write in fake_bleak.writes)
     assert fake_bleak.stopped_notifications == [NEW_BOARD_READ_UUID]
     assert fake_bleak.disconnected is True
 
@@ -342,6 +383,137 @@ async def test_client_selects_revised_and_old_characteristics(
     assert revised_fake.stopped_notifications == [REV_READ_UUID]
     assert {write[0] for write in revised_fake.writes} == {REV_WRITE_UUID}
     assert {write[0] for write in old_fake.writes} == {WRITE_UUID}
+
+
+@pytest.mark.parametrize(
+    ("write_properties", "response"),
+    [
+        (["read", "write"], True),
+        (["write-without-response"], False),
+        (["write", "write-without-response"], False),
+    ],
+    ids=["acknowledged-only", "unacknowledged-only", "both-modes"],
+)
+@pytest.mark.asyncio
+async def test_single_phase_login_uses_supported_write_mode(
+    monkeypatch: pytest.MonkeyPatch,
+    write_properties: list[str],
+    response: bool,
+) -> None:
+    """Issue #1's FFF1/FFF2 layout must work through login and commands."""
+
+    login = bytearray(69)
+    login[0] = 1
+    login[1:16] = b"EVSE".ljust(15, b"\x00")
+    login[17:32] = b"BS20".ljust(15, b"\x00")
+    login[33:49] = b"C.3251.114A0083".ljust(16, b"\x00")
+    login[49:53] = (7040).to_bytes(4, "big")
+    login[53] = 32
+    login[54:69] = b"WWW.EVSE.COM".ljust(15, b"\x00")
+    fake = _FakeBleakClient(
+        [_evse_packet(1, list(login)), _evse_packet(2, list(login))],
+        characteristics=[
+            _Characteristic(READ_UUID, ["read", "notify"]),
+            _Characteristic(WRITE_UUID, write_properties),
+        ],
+    )
+    client = _client(fake, monkeypatch)
+    try:
+        await client.async_start()
+        assert client.state.authenticated
+        assert client.state.info.phases == 1
+        assert client.state.info.output_power == 7040
+        assert client.state.info.output_max_amps == 32
+        assert client.state.info.hardware_version == "C.3251.114A0083"
+        await client.async_set_charge_amps(16)
+        assert fake.writes
+        assert all(write[2] is response for write in fake.writes)
+    finally:
+        await client.async_stop()
+
+
+@pytest.mark.parametrize("read_properties", [["notify"], ["indicate"]])
+@pytest.mark.asyncio
+async def test_characteristic_selection_uses_complete_pair(
+    monkeypatch: pytest.MonkeyPatch, read_properties: list[str]
+) -> None:
+    """A misleading service prefix cannot override a usable discovered pair."""
+
+    fake = _FakeBleakClient(
+        _login_packets(),
+        service_uuid=f"{NEW_BOARD_SERVICE_PREFIXES[0]}0000-1000-8000-00805f9b34fb",
+        characteristics=[
+            _Characteristic(NEW_BOARD_READ_UUID, ["read"]),
+            _Characteristic(READ_UUID, read_properties),
+            _Characteristic(WRITE_UUID, ["write"]),
+        ],
+    )
+    client = _client(fake, monkeypatch)
+    try:
+        await client.async_start()
+        assert client.state.info.board_revision == BoardRevision.OLD
+        assert {write[0] for write in fake.writes} == {WRITE_UUID}
+    finally:
+        await client.async_stop()
+
+
+@pytest.mark.parametrize(
+    "characteristics",
+    [
+        [],
+        [_Characteristic(WRITE_UUID, ["write"])],
+        [_Characteristic(READ_UUID, ["notify"])],
+        [_Characteristic(READ_UUID, ["read"]), _Characteristic(WRITE_UUID, ["write"])],
+        [_Characteristic(READ_UUID, ["notify"]), _Characteristic(WRITE_UUID, ["read"])],
+    ],
+    ids=["empty", "missing-notify", "missing-write", "not-notifiable", "not-writable"],
+)
+@pytest.mark.asyncio
+async def test_unusable_gatt_layout_fails_before_notifications(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    characteristics: list[_Characteristic],
+) -> None:
+    """Missing characteristics report discovery details without issuing writes."""
+
+    fake = _FakeBleakClient(_login_packets(), characteristics=characteristics)
+    client = _client(fake, monkeypatch)
+    with (
+        caplog.at_level(logging.DEBUG),
+        pytest.raises(CannotConnect, match="No supported Besen GATT"),
+    ):
+        await client._connect_once()
+    assert fake.disconnected
+    assert not fake.writes
+    assert not fake.stopped_notifications
+    assert "Discovered Besen GATT services and characteristics" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_write_mode_is_rediscovered_on_reconnect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A fresh connection uses its own GATT properties, not cached write mode."""
+
+    first = _FakeBleakClient(
+        _login_packets(),
+        characteristics=[
+            _Characteristic(READ_UUID, ["notify"]),
+            _Characteristic(WRITE_UUID, ["write"]),
+        ],
+    )
+    second = _FakeBleakClient(_login_packets())
+    client, _ = _client_with_connections([first, second], monkeypatch)
+    try:
+        await client.async_start()
+        await client.async_stop()
+        await client.async_start()
+        assert client.state.authenticated
+        assert first.writes and second.writes
+        assert all(write[2] is True for write in first.writes)
+        assert all(write[2] is False for write in second.writes)
+    finally:
+        await client.async_stop()
 
 
 @pytest.mark.asyncio

@@ -70,9 +70,10 @@ If the available version looks outdated, use **Update information** from the
 repository menu. Release discovery does not force updates onto other users'
 Home Assistant installations.
 
-Version **0.4.1** is the current stable release as of September 8, 2026. It keeps
-the full entity set described below. I am preparing single-phase compatibility
-changes for a later **0.4.2** release.
+Version **0.4.2** is the current stable release as of September 8, 2026. It keeps
+the full entity set described below and adds Bluetooth write-mode compatibility
+for the single-phase BS20 variant in issue #1. I have checked the captured GATT
+layout and automated tests; full testing on that charger's hardware is pending.
 
 ### Upgrading from 0.2.x
 

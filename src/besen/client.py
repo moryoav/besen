@@ -26,11 +26,9 @@ from .const import (
     MESSAGE_TIMEOUT,
     MIN_CHARGE_AMPS,
     NEW_BOARD_READ_UUID,
-    NEW_BOARD_SERVICE_PREFIXES,
     NEW_BOARD_WRITE_UUID,
     READ_UUID,
     RECONNECT_DELAY,
-    REV_BOARD_SERVICE_PREFIXES,
     REV_READ_UUID,
     REV_WRITE_UUID,
     SILENT_LOGIN_TIMEOUT,
@@ -417,10 +415,12 @@ class BesenClient:
                 raise CannotConnect("Besen client stopped while connecting")
             self._characteristics = self._select_characteristics()
             self._logger.debug(
-                "Selected Besen %s board characteristics read=%s write=%s",
+                "Selected Besen %s board characteristics read=%s write=%s "
+                "write_with_response=%s",
                 self._characteristics.board_revision.value,
                 self._characteristics.read_uuid,
                 self._characteristics.write_uuid,
+                self._characteristics.write_with_response,
             )
             self._update_info(board_revision=self._characteristics.board_revision)
             self._last_message = time.monotonic()
@@ -510,26 +510,46 @@ class BesenClient:
             self._logger.warning("Besen packet handler failed: %s", err)
 
     def _select_characteristics(self) -> CharacteristicPair:
-        """Select read/write characteristics from advertised GATT services."""
+        """Select a usable known UUID pair and its supported GATT write mode."""
 
         assert self._client is not None
-        service_uuids = [service.uuid.lower() for service in self._client.services]
-        if any(uuid.startswith(NEW_BOARD_SERVICE_PREFIXES) for uuid in service_uuids):
+        services = self._client.services
+        for read_uuid, write_uuid, revision in (
+            (NEW_BOARD_READ_UUID, NEW_BOARD_WRITE_UUID, BoardRevision.NEW),
+            (REV_READ_UUID, REV_WRITE_UUID, BoardRevision.REVISED),
+            (READ_UUID, WRITE_UUID, BoardRevision.OLD),
+        ):
+            read = services.get_characteristic(read_uuid)
+            write = services.get_characteristic(write_uuid)
+            if read is None or write is None:
+                continue
+            if not {"notify", "indicate"}.intersection(read.properties):
+                continue
+            if not {"write", "write-without-response"}.intersection(write.properties):
+                continue
             return CharacteristicPair(
-                read_uuid=NEW_BOARD_READ_UUID,
-                write_uuid=NEW_BOARD_WRITE_UUID,
-                board_revision=BoardRevision.NEW,
+                read_uuid=read_uuid,
+                write_uuid=write_uuid,
+                board_revision=revision,
+                # Preserve the existing mode where supported. Some BS20 variants
+                # expose only acknowledged writes on FFF2.
+                write_with_response="write-without-response" not in write.properties,
             )
-        if any(uuid.startswith(REV_BOARD_SERVICE_PREFIXES) for uuid in service_uuids):
-            return CharacteristicPair(
-                read_uuid=REV_READ_UUID,
-                write_uuid=REV_WRITE_UUID,
-                board_revision=BoardRevision.REVISED,
-            )
-        return CharacteristicPair(
-            read_uuid=READ_UUID,
-            write_uuid=WRITE_UUID,
-            board_revision=BoardRevision.OLD,
+
+        self._logger.debug(
+            "Discovered Besen GATT services and characteristics: %s",
+            [
+                (
+                    service.uuid,
+                    [(char.uuid, char.properties) for char in service.characteristics],
+                )
+                for service in services
+            ],
+        )
+        raise CannotConnect(
+            "No supported Besen GATT characteristic pair found. "
+            "Expected FFE4/FFE9, CDD1/CDD2, or FFF1/FFF2 with "
+            "notification and write support; see debug logs for discovered services."
         )
 
     def _disconnected(self, client: BleakClientWithServiceCache) -> None:
@@ -762,7 +782,7 @@ class BesenClient:
                 await client.write_gatt_char(
                     characteristics.write_uuid,
                     packet,
-                    response=False,
+                    response=characteristics.write_with_response,
                 )
             except Exception as err:
                 if client is self._client and generation == self._connection_generation:

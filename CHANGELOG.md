@@ -4,7 +4,18 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
-## [Unreleased]
+## [0.4.2] - 2026-09-08
+
+### Fixed
+
+- Use acknowledged Bluetooth writes when the charger only advertises that write mode, including the single-phase BS20 variant reported in issue #1. Preserve unacknowledged writes on boards that support them.
+- Select a complete, usable notification/write characteristic pair from discovered GATT characteristics instead of relying on service prefixes or assuming the old-board UUIDs exist.
+- Report discovered service UUIDs and characteristic properties in debug logs when no supported pair is found.
+
+### Validation
+
+- Added regression coverage for single-phase login and commands, all supported write modes, reconnects, and missing or unusable characteristics.
+- Full connection and charging validation on the reporter's single-phase hardware remains pending.
 
 ### Documentation
 

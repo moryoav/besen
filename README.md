@@ -23,9 +23,11 @@ The built-in Home Assistant integration has a separate release schedule and may
 have fewer features. I submit selected changes to Core in focused pull requests;
 those reviews do not delay releases of the full custom integration here.
 
-As of September 8, 2026, the latest custom release is **0.4.1**. It includes the
-sensor, switch, number, select, and text platforms. Single-phase compatibility
-work is planned for **0.4.2**, after validation.
+As of September 8, 2026, the latest custom release is **0.4.2**. It includes the
+sensor, switch, number, select, and text platforms, plus Bluetooth write-mode
+compatibility for the single-phase BS20 variant reported in issue #1. I have
+checked the captured GATT layout and automated tests; testing on the reporter's
+charger is still pending.
 
 The library has been verified with a Besen BS20 charger. Other Besen chargers that
 advertise as `ACP#...` and use the same BLE protocol may also work.
