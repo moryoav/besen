@@ -5,13 +5,22 @@ Native Home Assistant integration for Besen EV chargers over Bluetooth Low Energ
 
 This integration talks directly to the charger through Home Assistant's Bluetooth stack. It does not need MQTT, Docker, a sidecar process, or a Home Assistant add-on. It is designed to work through existing ESPHome Bluetooth proxies as long as those proxies support active GATT connections.
 
+## Release tracks
+
+I maintain this full custom integration and its Python library together on
+`main` in `moryoav/besen`. Stable GitHub releases are also the HACS releases.
+I submit selected features and fixes separately to Home Assistant Core, so the
+built-in integration can have fewer features than the HACS version.
+
+The custom integration uses the same `besen` domain as Core. When installed, it
+overrides the built-in Besen integration after a Home Assistant restart. Keep it
+updated through HACS, including when fixes are released in Core.
+
 ## Python Library
 
 The reusable BLE client and protocol parser are published as the `besen` Python package. Home Assistant installs that package as this integration's communication dependency.
 
-```bash
-pip install besen
-```
+There is no separate `pip install` step for Home Assistant users.
 
 ## Disclaimer
 
@@ -44,13 +53,48 @@ The charger can only keep one active BLE client connection. In some cases, after
 [![Open the Besen HACS repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=moryoav&repository=besen&category=integration)
 
 1. Open HACS.
-2. Add this repository as a custom integration repository.
+2. Open the top-right menu, choose **Custom repositories**, enter
+   `https://github.com/moryoav/besen`, and select **Integration** as the type.
 3. Install **Besen**.
 4. Restart Home Assistant.
 5. Go to **Settings > Devices & services**.
 6. Add **Besen** or accept the discovered `ACP#...` device.
 
 HACS uses GitHub releases when they are available. Install the latest release tag unless you explicitly want to test the default branch.
+
+### Updates
+
+HACS discovers new stable releases when it refreshes this repository. Open the
+**Besen** entry in HACS, install the offered update, and restart Home Assistant.
+If the available version looks outdated, use **Update information** from the
+repository menu. Release discovery does not force updates onto other users'
+Home Assistant installations.
+
+Version **0.4.1** is the current stable release as of September 8, 2026. It keeps
+the full entity set described below. I am preparing single-phase compatibility
+changes for a later **0.4.2** release.
+
+### Upgrading from 0.2.x
+
+I changed the integration domain from `besen_bs20` to `besen` in 0.3.0. There is
+no automatic migration from the old domain. Back up Home Assistant and download
+the existing charger diagnostics before upgrading.
+
+Disable the old **Besen BS20** integration entry before setting up **Besen**, so
+only one integration connects to the charger. After verifying the new entry,
+enable the desired diagnostic entities from its entity list and update dashboard,
+automation, script, and Energy references before removing the old entry.
+
+The 0.4.x names include **Charging power**, **Internal temperature**, **External
+temperature**, and **L1/L2/L3 current**. Actual entity IDs depend on the device name
+and existing registry entries. Check them in **Settings > Devices & services >
+Entities** instead of assuming an example ID matches your installation.
+
+Version 0.4.0 also corrected power and energy parsing. The old **Current Energy**
+sensor was a power sensor in watts. The old session sensor used a different
+protocol field; its history should not be treated as corrected session energy.
+Use **Total energy** for cumulative consumption and **Charging power** for the
+Energy dashboard's power reference.
 
 ### Manual installation
 
@@ -76,21 +120,26 @@ Enabled by default:
 
 - Charge switch.
 - Charge amps number.
-- Current Energy sensor.
-- Total/session energy sensors.
-- L1 Voltage and L1 Amperage.
+- Charging power, total energy, and session energy sensors.
+- Internal temperature.
 - Charger status, plug state, output state, current state, and error state.
-- Charger temperature.
 - Device name text entity.
 - Temperature unit and language selectors.
 
 Diagnostic or less commonly used entities may be disabled by default:
 
 - RSSI.
-- L2/L3 Voltage and Amperage on three-phase chargers.
+- L1 voltage and current; L2/L3 voltage and current on three-phase chargers.
+- External temperature.
 - System time.
 - LCD brightness.
 - Integration/protocol version details.
+
+To enable these entities, open **Settings > Devices & services > Entities**,
+filter by the Besen integration, include disabled entities, select the desired
+entities, and choose **Enable**. A sensor can still be unavailable when the
+charger has not supplied its value. Session energy requires a charging-status
+message; enabling an entity does not make the charger report unsupported data.
 
 ## Controls And Actions
 

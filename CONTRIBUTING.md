@@ -2,11 +2,24 @@
 
 Thanks for your interest in improving Besen for Home Assistant.
 
-This repository contains one Home Assistant custom integration:
+I maintain the Python library and the full Home Assistant custom integration in
+this repository:
 
-- `custom_components/besen`: the Besen integration, BLE protocol
-  client, config flow, entities, diagnostics, repairs, translations, and brand
-  assets.
+- `src/besen`: the reusable Bluetooth client, protocol parser, and data models.
+- `custom_components/besen`: the Home Assistant config flow, entities,
+  diagnostics, repairs, translations, and brand assets.
+
+## Development and releases
+
+I use `main` for ongoing library and full custom integration development. Stable
+`v*` tags publish the Python package to PyPI and make the matching integration
+release available through HACS. Keep `pyproject.toml`, the integration manifest,
+the version constant, and `CHANGELOG.md` aligned when preparing a release.
+
+Core contributions belong in branches of the Home Assistant fork, with separate
+dependency and platform pull requests. Keep supported features in the custom
+integration while Core reviews are pending. The next planned compatibility
+release is 0.4.2; do not publish it before the charger changes are validated.
 
 Contributions are welcome, including bug reports, documentation improvements,
 compatibility reports, BLE reliability fixes, security hardening, and focused
@@ -72,6 +85,7 @@ The repository layout is:
 
 ```text
 custom_components/besen/  Home Assistant custom integration
+src/besen/                     Shared Python Bluetooth library
 tests/                         Lightweight local tests
 .github/workflows/             CI, HACS, Hassfest, and release workflows
 ```

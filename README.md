@@ -7,6 +7,26 @@ It provides the BLE connection management, login flow, protocol parsing, typed s
 models, and charger control commands needed by applications such as Home Assistant
 integrations.
 
+## Home Assistant users
+
+I maintain the full-feature Home Assistant custom integration in this repository,
+alongside the Python library. Install **Besen** through HACS using
+[`moryoav/besen`](https://my.home-assistant.io/redirect/hacs_repository/?owner=moryoav&repository=besen&category=integration),
+then follow the [installation and upgrade guide](https://github.com/moryoav/besen/blob/main/docs/home-assistant-custom-integration.md).
+Home Assistant installs the Python dependency automatically.
+
+I develop both parts on `main` and publish stable `v*` releases for HACS and PyPI.
+HACS offers the latest stable release when it refreshes the repository; installing
+an update and restarting Home Assistant remain under the user's control.
+
+The built-in Home Assistant integration has a separate release schedule and may
+have fewer features. I submit selected changes to Core in focused pull requests;
+those reviews do not delay releases of the full custom integration here.
+
+As of September 8, 2026, the latest custom release is **0.4.1**. It includes the
+sensor, switch, number, select, and text platforms. Single-phase compatibility
+work is planned for **0.4.2**, after validation.
+
 The library has been verified with a Besen BS20 charger. Other Besen chargers that
 advertise as `ACP#...` and use the same BLE protocol may also work.
 

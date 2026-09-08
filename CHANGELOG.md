@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [Unreleased]
+
+### Documentation
+
+- Clarified the shared library and full-feature HACS release workflow on `main`, independent of selective Home Assistant Core submissions.
+- Corrected the custom integration's sensor names and enabled defaults, and documented upgrades from the legacy `besen_bs20` domain.
+
 ## [0.4.1] - 2026-08-30
 
 ### Fixed
