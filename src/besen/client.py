@@ -395,25 +395,59 @@ class BesenClient:
         self._login_request_sent = False
         self._last_login_request = None
         self._login_confirm_sent = False
-        generation = self._connection_generation
-        self._logger.debug("Connecting to Besen at %s", self.address)
         try:
-            self._client = await establish_connection(
-                BleakClientWithServiceCache,
-                ble_device,
-                self._name,
-                disconnected_callback=self._disconnected,
-                max_attempts=CONNECT_ATTEMPTS,
-                ble_device_callback=cast(
-                    Callable[[], BLEDevice],
-                    self._ble_device_provider,
-                ),
-                timeout=CONNECT_TIMEOUT,
-            )
-            client = self._client
-            if self._stopping:
-                raise CannotConnect("Besen client stopped while connecting")
-            self._characteristics = self._select_characteristics()
+            for discovery_attempt in range(2):
+                self._logger.debug("Connecting to Besen at %s", self.address)
+                self._client = await establish_connection(
+                    BleakClientWithServiceCache,
+                    ble_device,
+                    self._name,
+                    disconnected_callback=self._disconnected,
+                    max_attempts=CONNECT_ATTEMPTS,
+                    ble_device_callback=cast(
+                        Callable[[], BLEDevice],
+                        self._ble_device_provider,
+                    ),
+                    timeout=CONNECT_TIMEOUT,
+                    use_services_cache=discovery_attempt == 0,
+                )
+                client = self._client
+                if self._stopping:
+                    raise CannotConnect("Besen client stopped while connecting")
+                try:
+                    self._characteristics = self._select_characteristics()
+                except CannotConnect:
+                    if discovery_attempt:
+                        raise
+                    self._logger.warning(
+                        "No usable Besen characteristics found; clearing the device's "
+                        "service cache and retrying Bluetooth discovery once"
+                    )
+                    # Release the connection before cache removal can trigger its
+                    # disconnected callback or invalidate the backend's device path.
+                    await self._disconnect_client()
+                    try:
+                        async with asyncio.timeout(DISCONNECT_TIMEOUT):
+                            cleared = await client.clear_cache()
+                        self._logger.debug("Besen service cache cleared: %s", cleared)
+                    except Exception as err:
+                        self._logger.debug(
+                            "Unable to clear Besen service cache: %s", err
+                        )
+                    await asyncio.sleep(RECONNECT_DELAY)
+                    if self._stopping:
+                        raise CannotConnect(
+                            "Besen client stopped during discovery"
+                        ) from None
+                    ble_device = self._ble_device_provider()
+                    if ble_device is None:
+                        raise CannotConnect(
+                            "No connectable Bluetooth path is available"
+                        ) from None
+                else:
+                    break
+            generation = self._connection_generation
+            assert self._characteristics is not None
             self._logger.debug(
                 "Selected Besen %s board characteristics read=%s write=%s "
                 "write_with_response=%s",
@@ -430,7 +464,7 @@ class BesenClient:
             def _handle_notification(sender: Any, data: bytearray) -> None:
                 self._notification(sender, data, generation=generation)
 
-            await self._client.start_notify(
+            await client.start_notify(
                 self._characteristics.read_uuid,
                 _handle_notification,
             )
