@@ -104,8 +104,6 @@ class _FakeBleakClient:
         self.fail_write = False
         self.fail_disconnect = False
         self.disconnect_on_notify = False
-        self.cache_clears = 0
-        self.use_services_cache = True
         self.disconnected_callback: Callable[[Any], None] | None = None
         self.write_started: asyncio.Event | None = None
         self.write_release: asyncio.Event | None = None
@@ -138,15 +136,6 @@ class _FakeBleakClient:
             raise OSError("disconnect failed")
         self.disconnected = True
         self.is_connected = False
-
-    async def clear_cache(self) -> bool:
-        """Require disconnection before clearing the device cache."""
-
-        assert not self.is_connected
-        self.cache_clears += 1
-        if self.disconnected_callback is not None:
-            self.disconnected_callback(self)
-        return True
 
     async def write_gatt_char(
         self,
@@ -269,7 +258,6 @@ def _client_with_connections(
     async def _establish_connection(*args: Any, **kwargs: Any) -> _FakeBleakClient:
         del args
         fake_client = next(remaining)
-        fake_client.use_services_cache = kwargs["use_services_cache"]
         fake_client.disconnected_callback = kwargs["disconnected_callback"]
         established.append(fake_client)
         return fake_client
@@ -488,185 +476,17 @@ async def test_unusable_gatt_layout_fails_before_notifications(
 ) -> None:
     """Missing characteristics report discovery details without issuing writes."""
 
-    monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
-    fakes = [
-        _FakeBleakClient(_login_packets(), characteristics=characteristics)
-        for _ in range(2)
-    ]
-    client, established = _client_with_connections(fakes, monkeypatch)
+    fake = _FakeBleakClient(_login_packets(), characteristics=characteristics)
+    client = _client(fake, monkeypatch)
     with (
         caplog.at_level(logging.DEBUG),
         pytest.raises(CannotConnect, match="No supported Besen GATT"),
     ):
         await client._connect_once()
-    assert established == fakes
-    assert [fake.cache_clears for fake in fakes] == [1, 0]
-    assert [fake.use_services_cache for fake in fakes] == [True, False]
-    assert all(fake.disconnected for fake in fakes)
-    assert not any(fake.writes for fake in fakes)
-    assert not any(fake.stopped_notifications for fake in fakes)
+    assert fake.disconnected
+    assert not fake.writes
+    assert not fake.stopped_notifications
     assert "Discovered Besen GATT services and characteristics" in caplog.text
-
-
-@pytest.mark.parametrize("cache_result", ["cleared", "unsupported", "error", "timeout"])
-@pytest.mark.asyncio
-async def test_incomplete_discovery_recovers_login(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-    cache_result: str,
-) -> None:
-    """A generic-only service list gets one fresh discovery and a usable login."""
-
-    monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
-    incomplete = _FakeBleakClient(
-        [],
-        service_uuid="00001800-0000-1000-8000-00805f9b34fb",
-        characteristics=[
-            _Characteristic("00002a00-0000-1000-8000-00805f9b34fb", ["read"])
-        ],
-    )
-    complete = _FakeBleakClient(
-        _login_packets(),
-        characteristics=[
-            _Characteristic(READ_UUID, ["notify"]),
-            _Characteristic(WRITE_UUID, ["write"]),
-        ],
-    )
-    original_clear_cache = incomplete.clear_cache
-
-    async def _clear_cache() -> bool:
-        await original_clear_cache()
-        if cache_result == "error":
-            raise OSError("cache removal failed")
-        if cache_result == "timeout":
-            await asyncio.Event().wait()
-        return cache_result == "cleared"
-
-    monkeypatch.setattr(incomplete, "clear_cache", _clear_cache)
-    if cache_result == "timeout":
-        monkeypatch.setattr(client_module, "DISCONNECT_TIMEOUT", 0.01)
-    client, established = _client_with_connections([incomplete, complete], monkeypatch)
-    devices = [cast(BLEDevice, _BleDevice()), cast(BLEDevice, _BleDevice())]
-    provided_devices = iter(devices)
-    monkeypatch.setattr(client, "_ble_device_provider", lambda: next(provided_devices))
-    try:
-        with caplog.at_level(logging.DEBUG):
-            await client.async_start()
-        assert established == [incomplete, complete]
-        assert client.state.authenticated
-        assert incomplete.disconnected and not incomplete.writes
-        assert incomplete.cache_clears == 1
-        assert not complete.use_services_cache
-        assert complete.cache_clears == 0
-        assert complete.writes and all(write[2] for write in complete.writes)
-        assert client._reconnect_task is None
-        if cache_result in {"error", "timeout"}:
-            assert "Unable to clear Besen service cache" in caplog.text
-        else:
-            expected = f"Besen service cache cleared: {cache_result == 'cleared'}"
-            assert expected in caplog.text
-    finally:
-        await client.async_stop()
-
-
-@pytest.mark.asyncio
-async def test_incomplete_discovery_recovers_background_reconnect(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """An established session can recover through an incomplete reconnect."""
-
-    monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
-    original = _FakeBleakClient(_login_packets())
-    incomplete = _FakeBleakClient([], characteristics=[])
-    replacement = _FakeBleakClient(_login_packets())
-    client, established = _client_with_connections(
-        [original, incomplete, replacement], monkeypatch
-    )
-    try:
-        await client.async_start()
-        original.is_connected = False
-        assert original.disconnected_callback is not None
-        original.disconnected_callback(original)
-        assert client._reconnect_task is not None
-        await asyncio.wait_for(client._reconnect_task, 2)
-        assert established == [original, incomplete, replacement]
-        assert client.state.authenticated
-        assert incomplete.cache_clears == 1
-        assert not replacement.use_services_cache
-        assert original.cache_clears == replacement.cache_clears == 0
-    finally:
-        await client.async_stop()
-
-
-@pytest.mark.parametrize("stop", [False, True], ids=["path-lost", "stopped"])
-@pytest.mark.asyncio
-async def test_discovery_recovery_stops_without_a_path(
-    monkeypatch: pytest.MonkeyPatch, stop: bool
-) -> None:
-    """Recovery cannot open another connection after stopping or losing its path."""
-
-    monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
-    incomplete = _FakeBleakClient([], characteristics=[])
-    client, established = _client_with_connections([incomplete], monkeypatch)
-
-    async def _clear_cache() -> bool:
-        client._stopping = stop
-        monkeypatch.setattr(client, "_ble_device_provider", lambda: None)
-        return True
-
-    monkeypatch.setattr(incomplete, "clear_cache", _clear_cache)
-    with pytest.raises(CannotConnect, match=r"stopped|No connectable Bluetooth path"):
-        await client.async_start()
-    assert established == [incomplete]
-    assert incomplete.disconnected
-    assert not client.state.available
-
-
-@pytest.mark.asyncio
-async def test_discovery_recovery_cancellation_releases_connection(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Stopping during cache removal leaves no active connection or retry."""
-
-    incomplete = _FakeBleakClient([], characteristics=[])
-    client, established = _client_with_connections([incomplete], monkeypatch)
-    clearing = asyncio.Event()
-
-    async def _clear_cache() -> bool:
-        clearing.set()
-        await asyncio.Event().wait()
-        return True
-
-    monkeypatch.setattr(incomplete, "clear_cache", _clear_cache)
-    startup = asyncio.create_task(client.async_start())
-    await asyncio.wait_for(clearing.wait(), 2)
-    await client.async_stop()
-    with pytest.raises(asyncio.CancelledError):
-        await startup
-    assert established == [incomplete]
-    assert incomplete.disconnected
-    assert client._client is None
-    assert client._reconnect_task is None
-
-
-@pytest.mark.asyncio
-async def test_discovery_recovery_requires_successful_disconnect(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A connection that cannot be released must not be replaced or evicted."""
-
-    incomplete = _FakeBleakClient([], characteristics=[])
-    incomplete.fail_disconnect = True
-    client, established = _client_with_connections([incomplete], monkeypatch)
-    try:
-        with pytest.raises(CannotConnect, match="Unable to release"):
-            await client.async_start()
-        assert established == [incomplete]
-        assert incomplete.cache_clears == 0
-        assert not client.state.available
-    finally:
-        incomplete.fail_disconnect = False
-        await client.async_stop()
 
 
 @pytest.mark.asyncio

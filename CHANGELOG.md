@@ -4,18 +4,11 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
-## [0.4.3] - 2026-09-09
+## [0.4.3] - Withdrawn 2026-09-11
 
-### Fixed
-
-- Retry Bluetooth service discovery once when no usable Besen notification/write characteristic pair is found. Disconnect, attempt to clear the device's service cache, and reconnect with cached discovery disabled.
-- Apply discovery recovery during initial setup and background reconnection, with bounded cache clearing and cleanup before opening another connection.
-- Log cache-clearing results and retain the discovered service details if recovery fails.
-
-### Validation
-
-- Added regression coverage for recovery from incomplete service lists, repeated discovery failures, unsupported or failed cache clearing, timeouts, cancellation, and reconnects.
-- Hardware confirmation of this recovery change remains pending. The single-phase reporter confirmed setup and readings with 0.4.2; charging control remains untested.
+- Withdrawn the September 9 release following a report that initial connection no longer succeeds. A regression is suspected but has not been confirmed.
+- Reverted the automatic service-cache clearing and discovery retry changes. Restored 0.4.2 as the latest supported release.
+- Kept the remaining connection instability under investigation pending testing with improved Bluetooth reception.
 
 ## [0.4.2] - 2026-09-08
 
