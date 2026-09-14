@@ -779,6 +779,11 @@ class BesenClient:
             self._set_state(
                 last_command=CommandResult(command="charge_start", values=values)
             )
+            self._logger.debug(
+                "Charge start response: %s (expected line ID: %s)",
+                values,
+                self._charge_start_line_id,
+            )
             if values.get("error_reason") not in (None, "No error"):
                 self._logger.warning("Charge start response: %s", values)
             response = self._charge_start_response
@@ -786,7 +791,10 @@ class BesenClient:
                 response is not None
                 and not response.done()
                 and identifier == self._state.info.serial
-                and values["line_id"] == self._charge_start_line_id
+                and (
+                    self._charge_start_line_id is None
+                    or values["line_id"] == self._charge_start_line_id
+                )
             ):
                 response.set_result(values)
             return
@@ -852,7 +860,8 @@ class BesenClient:
                 if self._stopping or not self._state.authenticated:
                     raise CommandFailed("Charger is not authenticated")
                 self._charge_start_response = start_response
-                self._charge_start_line_id = packet[21]
+                # Reply connector IDs are independent of the request phase selector.
+                self._charge_start_line_id = self._state.charge.line_id
             try:
                 await client.write_gatt_char(
                     characteristics.write_uuid,

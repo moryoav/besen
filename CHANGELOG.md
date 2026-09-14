@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.4.5] - 2026-09-14 (Python library)
+
+### Fixed
+
+- Match charge-start replies to the connector ID reported by telemetry instead of the single-phase or three-phase request selector. This fixes valid three-phase replies being ignored, followed by a false timeout and unnecessary Bluetooth disconnection.
+- Correlate replies with the authenticated charger and serialized pending request when connector telemetry is not available yet, without guessing a connector ID from the phase count.
+- Preserve the existing single-phase and three-phase start packets and supported Bluetooth write modes. Add debug logging of the response and expected connector ID.
+
+### Validation
+
+- Cover accepted and rejected responses for both phase counts, before and after connector telemetry, and preserve rejection of replies from another charger or a known different connector.
+- Exercise single-phase charging with acknowledged-only, unacknowledged-only, and dual-mode GATT characteristics.
+- Validate a physical three-phase BS20 stop/start at 6 A: connector 1 acknowledged the unchanged three-phase request in 0.092 seconds, without a forced disconnect.
+- Passed 181 tests and 66 snapshots with 96.09% combined coverage, plus Ruff, mypy, Core alignment, and package validation.
+
 ## [0.5.1] - 2026-09-14 (HACS integration)
 
 ### Changed

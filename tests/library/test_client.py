@@ -113,6 +113,7 @@ async def test_charge_start_ignores_unrelated_replies(
     """Unrelated or malformed replies cannot finish a charging request."""
 
     client, fake = charging_client
+    client._set_state(charge=client.state.charge.updated(line_id=2))
     request = await _start_charging_request(client, fake)
     await client._async_handle_packet(7, b"\x02\x00\x01\x00\x10", "other charger")
     await client._async_handle_packet(7, b"\x01\x00\x01\x00\x10", EVSE_IDENTIFIER)
@@ -121,6 +122,66 @@ async def test_charge_start_ignores_unrelated_replies(
     assert not request.done()
     await client._async_handle_packet(7, b"\x02\x00\x01\x00\x10", EVSE_IDENTIFIER)
     await request
+
+
+@pytest.mark.parametrize("error", [0, 1], ids=["accepted", "rejected"])
+@pytest.mark.parametrize(
+    ("phases", "reported_line_id", "reply_line_id"),
+    [
+        (1, None, 1),
+        (1, 1, 1),
+        (3, None, 1),
+        (3, None, 2),
+        (3, 1, 1),
+        (3, 2, 2),
+    ],
+    ids=[
+        "single-phase-before-telemetry",
+        "single-phase-connector-1",
+        "three-phase-connector-1-before-telemetry",
+        "three-phase-connector-2-before-telemetry",
+        "three-phase-connector-1",
+        "three-phase-connector-2",
+    ],
+)
+async def test_charge_start_uses_reported_connector_id(
+    charging_client: tuple[BesenClient, _FakeBleakClient],
+    monkeypatch: pytest.MonkeyPatch,
+    error: int,
+    phases: int,
+    reported_line_id: int | None,
+    reply_line_id: int,
+) -> None:
+    """Both phase counts accept their replies before and after connector telemetry."""
+
+    client, fake = charging_client
+    client._set_state(
+        info=client.state.info.updated(phases=phases),
+        charge=client.state.charge.updated(line_id=reported_line_id),
+    )
+    monkeypatch.setattr(client_module, "CHARGE_START_TIMEOUT", 0.1)
+    request = await _start_charging_request(client, fake)
+    # Preserve the established single/three-phase wire request.
+    assert parse_packet(fake.writes[-1][1]).data[0] == (2 if phases == 3 else 1)
+    await client._async_handle_packet(
+        7, bytes([reply_line_id, 0, 1, 0, 16]), "other charger"
+    )
+    assert not request.done()
+    if reported_line_id is not None:
+        await client._async_handle_packet(
+            7, bytes([3, 0, 1, 0, 16]), EVSE_IDENTIFIER
+        )
+        assert not request.done()
+    await client._async_handle_packet(
+        7, bytes([reply_line_id, 0, int(error == 0), error, 16]), EVSE_IDENTIFIER
+    )
+    if error:
+        with pytest.raises(CommandFailed, match="plug is not plugged in properly"):
+            await request
+    else:
+        await request
+    assert client.is_connected
+    assert client._charge_start_response is None
 
 
 async def test_charge_start_serializes_requests(
@@ -673,6 +734,12 @@ async def test_single_phase_login_uses_supported_write_mode(
         assert client.state.info.output_max_amps == 32
         assert client.state.info.hardware_version == "C.3251.114A0083"
         await client.async_set_charge_amps(16)
+        client._set_state(charge=client.state.charge.updated(line_id=1))
+        fake.charge_start_reply = [1, 0, 1, 0, 16]
+        await client.async_start_charging(16)
+        assert client.state.last_command is not None
+        assert client.state.last_command.values["line_id"] == 1
+        assert client.is_connected
         assert fake.writes
         assert all(write[2] is response for write in fake.writes)
     finally:
