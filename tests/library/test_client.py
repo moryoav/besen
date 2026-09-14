@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 import logging
 from typing import Any, cast
 
@@ -27,6 +27,250 @@ from bleak.backends.device import BLEDevice
 import pytest
 
 EVSE_IDENTIFIER = "8949281891483449"
+
+
+@pytest.fixture
+async def charging_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> AsyncIterator[tuple[BesenClient, _FakeBleakClient]]:
+    """Provide a connected charger with manually controlled command replies."""
+
+    fake = _FakeBleakClient(_login_packets())
+    client = _client(fake, monkeypatch)
+    await client.async_start()
+    monkeypatch.setattr(client, "_schedule_reconnect", lambda: None)
+    fake.write_started = asyncio.Event()
+    try:
+        yield client, fake
+    finally:
+        await client.async_stop()
+
+
+async def _start_charging_request(
+    client: BesenClient, fake: _FakeBleakClient
+) -> asyncio.Task[None]:
+    """Start a command and wait until it reaches the Bluetooth transport."""
+
+    assert fake.write_started is not None
+    fake.write_started.clear()
+    request = asyncio.create_task(client.async_start_charging(16))
+    await asyncio.wait_for(fake.write_started.wait(), 1)
+    return request
+
+
+@pytest.mark.parametrize("phases", [1, 3])
+async def test_charge_start_waits_for_reply(
+    charging_client: tuple[BesenClient, _FakeBleakClient], phases: int
+) -> None:
+    """A written request waits for a matching reply without blocking heartbeats."""
+
+    client, fake = charging_client
+    client._set_state(info=client.state.info.updated(phases=phases))
+    request = await _start_charging_request(client, fake)
+    line_id = parse_packet(fake.writes[-1][1]).data[0]
+    assert not request.done()
+    await asyncio.wait_for(client._async_handle_packet(3, b"", EVSE_IDENTIFIER), 1)
+    assert _written_commands(fake)[32771] == 1
+    await client._async_handle_packet(7, bytes([line_id, 0, 1, 0, 16]), EVSE_IDENTIFIER)
+    await request
+    assert client.state.last_command is not None
+    assert client.state.last_command.values["error_reason"] == "No error"
+    assert client._charge_start_response is None
+    assert client.is_connected
+
+
+@pytest.mark.parametrize(
+    ("reservation", "error", "message"),
+    [
+        (0, 1, "plug is not plugged in properly"),
+        (2, 0, "system does not support reservation"),
+        (0, 255, "Unknown charging error 255"),
+        (255, 0, "Unknown reservation error 255"),
+    ],
+)
+async def test_charge_start_rejection(
+    charging_client: tuple[BesenClient, _FakeBleakClient],
+    reservation: int,
+    error: int,
+    message: str,
+) -> None:
+    """Known and unknown rejection codes reach the action caller."""
+
+    client, fake = charging_client
+    request = await _start_charging_request(client, fake)
+    await client._async_handle_packet(
+        7, bytes([2, reservation, 0, error, 16]), EVSE_IDENTIFIER
+    )
+    with pytest.raises(CommandFailed, match=message):
+        await request
+    assert client._charge_start_response is None
+    assert client.is_connected
+
+
+async def test_charge_start_ignores_unrelated_replies(
+    charging_client: tuple[BesenClient, _FakeBleakClient],
+) -> None:
+    """Unrelated or malformed replies cannot finish a charging request."""
+
+    client, fake = charging_client
+    request = await _start_charging_request(client, fake)
+    await client._async_handle_packet(7, b"\x02\x00\x01\x00\x10", "other charger")
+    await client._async_handle_packet(7, b"\x01\x00\x01\x00\x10", EVSE_IDENTIFIER)
+    await client._async_handle_packet(7, b"\x02", EVSE_IDENTIFIER)
+    await client._async_handle_packet(8, b"\x02\x0b\x00", EVSE_IDENTIFIER)
+    assert not request.done()
+    await client._async_handle_packet(7, b"\x02\x00\x01\x00\x10", EVSE_IDENTIFIER)
+    await request
+
+
+async def test_charge_start_serializes_requests(
+    charging_client: tuple[BesenClient, _FakeBleakClient],
+) -> None:
+    """A second start is sent only after the first reply is consumed."""
+
+    client, fake = charging_client
+    first = await _start_charging_request(client, fake)
+    second = asyncio.create_task(client.async_start_charging(16))
+    await asyncio.sleep(0)
+    assert _written_commands(fake)[32775] == 1
+    assert fake.write_started is not None
+    fake.write_started.clear()
+    await client._async_handle_packet(7, b"\x02\x00\x01\x00\x10", EVSE_IDENTIFIER)
+    # Duplicate replies already queued for the first request must be ignored.
+    await client._async_handle_packet(7, b"\x02\x00\x01\x00\x10", EVSE_IDENTIFIER)
+    await first
+    await asyncio.wait_for(fake.write_started.wait(), 1)
+    assert _written_commands(fake)[32775] == 2
+    assert not second.done()
+    await client._async_handle_packet(7, b"\x02\x00\x00\x01\x10", EVSE_IDENTIFIER)
+    with pytest.raises(CommandFailed, match="plug is not plugged in properly"):
+        await second
+
+
+@pytest.mark.parametrize("end_session", ["disconnect", "shutdown", "unavailable"])
+async def test_charge_start_connection_ends(
+    charging_client: tuple[BesenClient, _FakeBleakClient], end_session: str
+) -> None:
+    """Connection loss and unloading promptly release the pending action."""
+
+    client, fake = charging_client
+    request = await _start_charging_request(client, fake)
+    if end_session == "disconnect":
+        fake.is_connected = False
+        client._disconnected(cast(Any, fake))
+    elif end_session == "shutdown":
+        await client.async_stop()
+    else:
+        client._set_state(available=False, authenticated=False)
+    with pytest.raises(CommandFailed, match="disconnected before confirming"):
+        await asyncio.wait_for(request, 1)
+    assert client._charge_start_response is None
+
+
+async def test_charge_start_write_failure(
+    charging_client: tuple[BesenClient, _FakeBleakClient],
+) -> None:
+    """Transport errors preserve CommandFailed and clear the response waiter."""
+
+    client, fake = charging_client
+    fake.fail_write = True
+    with pytest.raises(CommandFailed, match="Failed to send charge_start"):
+        await client.async_start_charging()
+    assert client._charge_start_response is None
+
+
+@pytest.mark.parametrize("cancel", [False, True], ids=["timeout", "cancel"])
+async def test_charge_start_abandons_session(
+    charging_client: tuple[BesenClient, _FakeBleakClient],
+    monkeypatch: pytest.MonkeyPatch,
+    cancel: bool,
+) -> None:
+    """An unconfirmed request retires the session without retrying the action."""
+
+    client, fake = charging_client
+    monkeypatch.setattr(client_module, "CHARGE_START_TIMEOUT", 0.02)
+    request = await _start_charging_request(client, fake)
+    old_callback = fake.notification_callback
+    assert old_callback is not None
+    if cancel:
+        request.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await request
+    else:
+        with pytest.raises(CommandFailed, match="outcome is unknown"):
+            await request
+    assert fake.disconnected
+    assert client._charge_start_response is None
+    assert _written_commands(fake)[32775] == 1
+
+    replacement = _FakeBleakClient(_login_packets())
+
+    async def _establish_connection(*args: Any, **kwargs: Any) -> _FakeBleakClient:
+        return replacement
+
+    monkeypatch.setattr(client_module, "establish_connection", _establish_connection)
+    monkeypatch.setattr(client_module, "CHARGE_START_TIMEOUT", 1)
+    await client._connect_and_login()
+    replacement.write_started = asyncio.Event()
+    next_request = await _start_charging_request(client, replacement)
+    old_callback(1, bytearray(_evse_packet(7, [2, 0, 1, 0, 16])))
+    await asyncio.sleep(0)
+    assert not next_request.done()
+    assert replacement.notification_callback is not None
+    replacement.notification_callback(1, bytearray(_evse_packet(7, [2, 0, 0, 1, 16])))
+    with pytest.raises(CommandFailed, match="plug is not plugged in properly"):
+        await next_request
+
+
+async def test_charge_start_requires_authentication(
+    charging_client: tuple[BesenClient, _FakeBleakClient],
+) -> None:
+    """A request cannot be sent during login or shutdown."""
+
+    client, fake = charging_client
+    client._set_state(authenticated=False)
+    with pytest.raises(CommandFailed, match="not authenticated"):
+        await client.async_start_charging()
+    assert _written_commands(fake)[32775] == 0
+
+
+async def test_charge_start_timeout_before_write_preserves_connection(
+    charging_client: tuple[BesenClient, _FakeBleakClient],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Timing out behind another write cannot retire an unused session."""
+
+    client, fake = charging_client
+    monkeypatch.setattr(client_module, "CHARGE_START_TIMEOUT", 0.01)
+    async with client._command_lock:
+        with pytest.raises(CommandFailed, match="Timed out"):
+            await client.async_start_charging()
+    assert _written_commands(fake)[32775] == 0
+    assert client.is_connected
+    assert client.state.authenticated
+    fake.charge_start_reply = [2, 0, 1, 0, 16]
+    await client.async_start_charging()
+
+
+async def test_charge_start_cleanup_failure_preserves_timeout(
+    charging_client: tuple[BesenClient, _FakeBleakClient],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed disconnect cannot hide a timeout or allow reuse before login."""
+
+    client, fake = charging_client
+    monkeypatch.setattr(client_module, "CHARGE_START_TIMEOUT", 0.01)
+    fake.fail_disconnect = True
+    try:
+        with pytest.raises(CommandFailed, match="outcome is unknown"):
+            await client.async_start_charging()
+        assert client._charge_start_response is None
+        assert not client.state.authenticated
+        with pytest.raises(CommandFailed, match="not authenticated"):
+            await client.async_start_charging()
+        assert _written_commands(fake)[32775] == 1
+    finally:
+        fake.fail_disconnect = False
 
 
 class _Characteristic:
@@ -101,6 +345,8 @@ class _FakeBleakClient:
         self.disconnected_callback: Callable[[Any], None] | None = None
         self.write_started: asyncio.Event | None = None
         self.write_release: asyncio.Event | None = None
+        self.notification_callback: Callable[[int, bytearray], None] | None = None
+        self.charge_start_reply: list[int] | None = None
 
     async def start_notify(
         self,
@@ -109,6 +355,7 @@ class _FakeBleakClient:
     ) -> None:
         """Start notifications and replay queued packets."""
 
+        self.notification_callback = callback
         if self.disconnect_on_notify:
             self.is_connected = False
             self.disconnected = True
@@ -153,6 +400,11 @@ class _FakeBleakClient:
         if property_name not in char.properties:
             raise OSError("Unsupported write mode")
         self.writes.append((uuid, data, response))
+        if parse_packet(data).command == 32775 and self.charge_start_reply is not None:
+            assert self.notification_callback is not None
+            self.notification_callback(
+                1, bytearray(_evse_packet(7, self.charge_start_reply))
+            )
 
 
 class _DelayedLoginBleakClient(_FakeBleakClient):
@@ -321,6 +573,7 @@ async def test_client_public_commands_and_listeners(
     """Public command helpers send commands and listener removal works."""
 
     fake_bleak = _FakeBleakClient(_login_packets())
+    fake_bleak.charge_start_reply = [2, 0, 1, 0, 16]
     client = _client(fake_bleak, monkeypatch)
     updates: list[bool] = []
 

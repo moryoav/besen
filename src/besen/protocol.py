@@ -449,9 +449,13 @@ def parse_charge_start(data: bytes, _identifier: str) -> dict[str, Any]:
 
     return {
         "line_id": byte_to_integer(data[0]),
-        "reservation_result": CHARGE_START_RESERVATION.get(byte_to_integer(data[1])),
+        "reservation_result": CHARGE_START_RESERVATION.get(
+            data[1], f"Unknown reservation error {data[1]}"
+        ),
         "start_result": byte_to_integer(data[2]),
-        "error_reason": CHARGE_START_ERROR.get(byte_to_integer(data[3])),
+        "error_reason": CHARGE_START_ERROR.get(
+            data[3], f"Unknown charging error {data[3]}"
+        ),
         "output_amps": byte_to_integer(data[4]),
     }
 

@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.4.4] - 2026-09-14 (Python library)
+
+### Fixed
+
+- Wait for the charger response before completing a Python library start-charging request, and raise `CommandFailed` for reported rejection codes, disconnection, or a missing response.
+- Serialize start-charging requests and retire the Bluetooth session after a timeout or cancellation so a late response cannot complete the next request. Do not retry the charging action automatically.
+
+### Validation
+
+- Add coverage for accepted and rejected requests, unknown error codes, unrelated responses, concurrent requests, transport failures, disconnection, cancellation, and late replies from a retired connection.
+- Passed 169 tests and 66 snapshots with 96.09% combined coverage, plus Ruff, mypy, Core alignment, and package validation. Physical charger validation of response timing remains pending.
+
+### Packaging
+
+- Publish Python library releases with `library-vX.Y.Z` tags independently of the HACS integration version.
+
 ## [0.5.0] - 2026-09-14
 
 ### Changed

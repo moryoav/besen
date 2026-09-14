@@ -12,9 +12,11 @@ this repository:
 ## Development and releases
 
 I use `main` for ongoing library and full custom integration development. Stable
-`v*` tags publish the Python package to PyPI and make the matching integration
-release available through HACS. Keep `pyproject.toml`, the integration manifest,
-the version constant, and `CHANGELOG.md` aligned when preparing a release.
+`vX.Y.Z` tags publish HACS releases and must match the integration manifest.
+`library-vX.Y.Z` tags publish the Python package to PyPI and must match
+`pyproject.toml` and `src/besen/__init__.py`. Library-only releases do not replace
+the latest HACS release. A `vX.Y.Z` tag also publishes the library when both
+versions match. Update `CHANGELOG.md` for each release.
 
 Core contributions belong in branches of the Home Assistant fork, with separate
 dependency and platform pull requests. Keep supported features in the custom
@@ -115,12 +117,10 @@ Please keep pull requests focused. A good pull request should:
 - Avoid committing secrets, charger PINs, private BLE addresses, private logs,
   Wi-Fi details, or personal Home Assistant configuration.
 
-If you change the integration version, update these files consistently:
-
-- `pyproject.toml`
-- `custom_components/besen/manifest.json`
-- `custom_components/besen/const.py`
-- `CHANGELOG.md`
+For HACS releases, update `custom_components/besen/manifest.json` and
+`CHANGELOG.md`. For Python library releases, update `pyproject.toml`,
+`src/besen/__init__.py`, and `CHANGELOG.md`. Bump the integration's pinned
+dependency only after the new library version is available on PyPI.
 
 ## Testing
 

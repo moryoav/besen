@@ -187,7 +187,20 @@ All library-specific errors inherit from `BesenError`.
 - `NoConnectablePath`: no active BLE path is available.
 - `InvalidAuth`: the charger rejected the configured PIN.
 - `ProtocolError`: malformed charger data was received.
-- `CommandFailed`: a charger command could not be sent or was invalid.
+- `CommandFailed`: a charger command could not be sent, was invalid, or a
+  start-charging request was rejected or could not be confirmed.
+
+`async_start_charging()` waits up to 10 seconds for the charger response, including
+the Bluetooth write. A response with a charging or reservation error raises
+`CommandFailed`. A successful response confirms the request, while actual charging
+state continues to arrive through notifications.
+
+If the response times out, the charging outcome is unknown. The client disconnects
+and reconnects without automatically sending another start request. Cancellation
+after sending also retires that Bluetooth session so a late reply cannot be
+mistaken for the next request's response. Connection cleanup can extend the time
+before the method exits. Concurrent start requests wait their turn before the
+10-second timeout begins. Other command methods retain their existing behavior.
 
 ## Bluetooth Notes
 

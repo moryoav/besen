@@ -13,6 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from .const import (
+    CHARGE_START_TIMEOUT,
     CLOCK_SYNC_INTERVAL,
     CONNECT_ATTEMPTS,
     CONNECT_TIMEOUT,
@@ -86,6 +87,9 @@ class BesenClient:
         self._listeners: set[StateListener] = set()
         self._connect_lock = asyncio.Lock()
         self._command_lock = asyncio.Lock()
+        self._charge_start_lock = asyncio.Lock()
+        self._charge_start_response: asyncio.Future[dict[str, Any] | None] | None = None
+        self._charge_start_line_id: int | None = None
         self._packet_lock = asyncio.Lock()
         self._ready_event = asyncio.Event()
         self._connect_owner_task: asyncio.Task[None] | None = None
@@ -154,6 +158,7 @@ class BesenClient:
         """Stop tasks and disconnect from the charger."""
 
         self._stopping = True
+        self._end_charge_start()
         self._ready_event.set()
         current = asyncio.current_task()
         tasks = {
@@ -195,13 +200,67 @@ class BesenClient:
         )
 
     async def async_start_charging(self, amps: int | None = None) -> None:
-        """Start charging at the requested amperage."""
+        """Request charging and wait for the charger's acceptance or rejection."""
 
-        await self._send_command(
-            32775,
-            self._charge_start_payload(self._clamp_amps(amps)),
-            name="charge_start",
+        async with self._charge_start_lock:
+            response: asyncio.Future[dict[str, Any] | None] = (
+                asyncio.get_running_loop().create_future()
+            )
+            payload = self._charge_start_payload(self._clamp_amps(amps))
+            try:
+                async with asyncio.timeout(CHARGE_START_TIMEOUT):
+                    await self._send_command(
+                        32775,
+                        payload,
+                        name="charge_start",
+                        start_response=response,
+                    )
+                    values = await response
+            except TimeoutError as err:
+                await self._async_abandon_charge_start(response)
+                raise CommandFailed(
+                    "Timed out waiting for the charging response; "
+                    "the charging outcome is unknown"
+                ) from err
+            except asyncio.CancelledError:
+                await asyncio.shield(self._async_abandon_charge_start(response))
+                raise
+            finally:
+                self._end_charge_start()
+                response.cancel()
+
+            if values is None:
+                raise CommandFailed("Charger disconnected before confirming charging")
+            for key in ("error_reason", "reservation_result"):
+                if values[key] != "No error":
+                    raise CommandFailed(f"Charger rejected charging: {values[key]}")
+
+    def _end_charge_start(self) -> None:
+        """Release a pending charging request when its connection ends."""
+
+        response = self._charge_start_response
+        self._charge_start_response = None
+        self._charge_start_line_id = None
+        if response is not None and not response.done():
+            response.set_result(None)
+
+    async def _async_abandon_charge_start(
+        self, response: asyncio.Future[dict[str, Any] | None]
+    ) -> None:
+        """Retire a session whose uncorrelated charging reply may still arrive."""
+
+        if self._charge_start_response is not response:
+            return
+        self._set_state(
+            available=False,
+            authenticated=False,
+            last_error="Charging request ended without a confirmed response",
         )
+        try:
+            await self._disconnect_client()
+        except CannotConnect as err:
+            self._logger.warning("Unable to disconnect after charging request: %s", err)
+        self._schedule_reconnect()
 
     async def async_stop_charging(self) -> None:
         """Stop charging."""
@@ -448,6 +507,7 @@ class BesenClient:
         """Disconnect the BLE client if connected."""
 
         client = self._client
+        self._end_charge_start()
         self._connection_generation += 1
         if client is None:
             self._characteristics = None
@@ -564,6 +624,7 @@ class BesenClient:
         self._client = None
         self._characteristics = None
         self._connection_generation += 1
+        self._end_charge_start()
         for task in self._background_tasks:
             task.cancel()
         self._set_state(
@@ -720,6 +781,14 @@ class BesenClient:
             )
             if values.get("error_reason") not in (None, "No error"):
                 self._logger.warning("Charge start response: %s", values)
+            response = self._charge_start_response
+            if (
+                response is not None
+                and not response.done()
+                and identifier == self._state.info.serial
+                and values["line_id"] == self._charge_start_line_id
+            ):
+                response.set_result(values)
             return
 
         if command == 8:
@@ -765,6 +834,7 @@ class BesenClient:
         payload: list[Any] | None,
         *,
         name: str,
+        start_response: asyncio.Future[dict[str, Any] | None] | None = None,
     ) -> None:
         """Build and send a command packet."""
 
@@ -778,6 +848,11 @@ class BesenClient:
             if serial is None:
                 raise CommandFailed("Charger serial is not known yet")
             packet = build_command(serial, self.pin, command, payload)
+            if start_response is not None:
+                if self._stopping or not self._state.authenticated:
+                    raise CommandFailed("Charger is not authenticated")
+                self._charge_start_response = start_response
+                self._charge_start_line_id = packet[21]
             try:
                 await client.write_gatt_char(
                     characteristics.write_uuid,
@@ -843,6 +918,8 @@ class BesenClient:
         """Update state and notify listeners."""
 
         self._state = self._state.updated(**changes)
+        if not self._state.available or not self._state.authenticated:
+            self._end_charge_start()
         for listener in list(self._listeners):
             listener(self._state)
 
