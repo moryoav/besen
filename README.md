@@ -15,19 +15,18 @@ through HACS using
 [`moryoav/besen`](https://my.home-assistant.io/redirect/hacs_repository/?owner=moryoav&repository=besen&category=integration),
 then follow the [installation and upgrade guide](https://github.com/moryoav/besen/blob/main/docs/home-assistant-custom-integration.md).
 
-HACS version **0.5.0** matches the latest merged Core implementation, including
+HACS version **0.5.1** uses the accepted Core integration baseline, including
 [the charger display temperature unit select](https://github.com/home-assistant/core/pull/180888).
-It requires **Home Assistant 2026.9.2 or later** and uses the same `besen==0.4.2`
-communication library as Core. The alignment changes the integration, without
-changing the Bluetooth transport or protocol library.
+It requires **Home Assistant 2026.9.2 or later** and installs `besen==0.4.4`
+automatically. This library update waits for the charger's response to a start-charging
+request and reports rejection or a missing response as a Home Assistant error.
 
 I keep `main` aligned with accepted Core changes. Stable HACS releases can include
 changes already merged into Core before they appear in a Home Assistant release.
 
-Development `main` now uses `besen==0.4.4` for start-charging response handling,
-with the dependency difference recorded in the alignment inventory. Published
-HACS 0.5.0 retains `besen==0.4.2` until the next integration release.
-Future development branches will be introduced after this alignment is tested.
+I am validating this library update through HACS before marking
+[the Core dependency PR](https://github.com/home-assistant/core/pull/182194)
+ready for review. HACS 0.5.0 retains its original `besen==0.4.2` dependency.
 The [alignment inventory](https://github.com/moryoav/besen/blob/main/docs/core-alignment.md)
 records the exact baseline and necessary packaging and upgrade differences.
 

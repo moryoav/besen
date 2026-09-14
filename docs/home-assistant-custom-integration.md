@@ -1,6 +1,8 @@
 # Besen for Home Assistant
 
-I maintain this HACS distribution to match the latest merged Home Assistant Core Besen integration. HACS **0.5.0** is based on [Core PR #180888](https://github.com/home-assistant/core/pull/180888) and requires **Home Assistant 2026.9.2 or later**. Home Assistant installs the unchanged `besen==0.4.2` communication library automatically.
+I maintain this HACS distribution using the accepted Home Assistant Core Besen integration baseline. HACS **0.5.1** is based on [Core PR #180888](https://github.com/home-assistant/core/pull/180888) and requires **Home Assistant 2026.9.2 or later**. Home Assistant installs `besen==0.4.4` automatically so rejected or unconfirmed start-charging requests raise Home Assistant errors.
+
+I am validating this library update through HACS before marking [the Core dependency PR](https://github.com/home-assistant/core/pull/182194) ready for review.
 
 The [alignment inventory](core-alignment.md) records the complete comparison and upgrade differences. Core changes can reach this repository before the next Home Assistant release.
 
@@ -26,9 +28,13 @@ A custom integration with domain `besen` takes precedence over the built-in inte
 
 For manual installation, copy `custom_components/besen` into the Home Assistant configuration directory and restart.
 
+## Upgrading from 0.5.0
+
+Install **0.5.1** in HACS and restart Home Assistant. Existing entries and entities are retained. This release updates the communication library to wait for the charger's start-charging response; it does not retry charging actions automatically.
+
 ## Upgrading from 0.4.x
 
-Install **0.5.0** in HACS and restart Home Assistant. If the version is not listed, refresh the repository information and check the minimum Home Assistant version above.
+Install **0.5.1** in HACS and restart Home Assistant. If the version is not listed, refresh the repository information and check the minimum Home Assistant version above.
 
 Existing `besen` entries are retained. The upgrade supplies the name missing from older manual entries and migrates **Charge Amps** to Core's **Charging current** identifier while retaining its existing entity ID, custom name, device association, and history. Existing user choices about enabled entities are retained; Core defaults apply to newly created entities.
 
@@ -52,7 +58,7 @@ Status sensor states and temperature options now use Core's stable IDs. Update a
 
 Check the current state in **Developer tools** > **States** when updating other comparisons. Unknown protocol values now produce `unknown`, rather than an invented `unknown_0` or similar state.
 
-The withdrawn 0.4.3 release is not reused. Version 0.5.0 uses the same 0.4.2 Bluetooth library as Core.
+The withdrawn 0.4.3 release is not reused. HACS and Python library versions are independent: HACS 0.5.1 uses Python library 0.4.4.
 
 ### Older installations
 

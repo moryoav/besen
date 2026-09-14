@@ -18,12 +18,12 @@ HACS 0.5.0 aligns with Home Assistant Core commit `1d38f3627ba11a1951784d93eb9f1
 | Extra sensors | RSSI, system time, software-version entity | Remove from the custom integration; firmware remains device metadata |
 | Extra flows | Reauthentication, reconfiguration, downloadable diagnostics, custom repairs | Remove features absent from Core; delete obsolete custom repair issues on upgrade |
 | Tests | Integration internals mocked with lightweight stubs | Port Core integration tests to the custom-integration test harness; retain library tests and add upgrade coverage |
-| Dependency | `besen==0.4.2` | Keep the exact Core dependency and unchanged library implementation |
-| Packaging | HACS and library shared release numbering | HACS 0.5.0; Python library remains 0.4.2; do not republish unchanged library artifacts |
+| Dependency | `besen==0.4.2` | HACS 0.5.1 uses `besen==0.4.4` for start-charging response handling; the pinned Core baseline uses `0.4.2` |
+| Packaging | HACS and library shared release numbering | HACS 0.5.1 and Python library 0.4.4 have independent releases |
 
 ## Necessary differences from Core
 
-- Development `main` uses `besen==0.4.4` for start-charging response handling while the pinned Core baseline uses `0.4.2`. This exact dependency override is recorded in `core-baseline.json`; all other baseline checks remain enforced. Published HACS 0.5.0 keeps its original 0.4.2 dependency.
+- HACS 0.5.1 and `main` use `besen==0.4.4` for start-charging response handling while the pinned Core baseline uses `0.4.2`. This exact dependency override is recorded in `core-baseline.json`; all other baseline checks remain enforced. Published HACS 0.5.0 keeps its original 0.4.2 dependency.
 - Custom manifest version, repository documentation and issue links, bundled branding, and English translations.
 - A small upgrade adapter fills the name missing from old manual entries, retires the old sync-clock option and repair issues, and migrates the charging-current unique ID. Existing entity IDs, names, history, and user-selected enabled states are retained. Removed entities can remain as unavailable registry entries until users remove them.
 - Home Assistant 2026.9.2 or later is required by this release and is the integration test baseline. The Python library itself retains Python 3.12 compatibility.
@@ -35,4 +35,4 @@ Status sensor states and temperature options now use Core's stable lowercase IDs
 
 Language, device-name editing, brightness, extra sensors, and the old configuration/diagnostics flows are intentionally removed. The old clock option is ignored and removed; Core's default clock synchronization applies.
 
-The new release does not change Bluetooth transport or protocol behavior. Testing with a physical charger through HACS remains the next validation step.
+HACS 0.5.1 waits for the charger response before completing a start-charging request and reports rejection, disconnection, or a missing response as an error. It retires the connection after a timeout or cancellation to prevent late responses from completing a later request. Charging actions are not retried automatically. Testing with a physical charger through HACS remains the next validation step before [Core PR #182194](https://github.com/home-assistant/core/pull/182194) is marked ready for review.

@@ -4,12 +4,17 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
-## [Unreleased] (HACS integration)
+## [0.5.1] - 2026-09-14 (HACS integration)
 
 ### Changed
 
-- Bump the development integration dependency to `besen==0.4.4` so rejected or unconfirmed charging requests raise Home Assistant errors.
+- Bump the HACS integration dependency to `besen==0.4.4` so rejected or unconfirmed start-charging requests raise Home Assistant errors. Charging actions are not retried automatically.
 - Record the dependency override while preserving the accepted Core source baseline and its alignment checks.
+
+### Validation
+
+- Passed 169 tests and 66 snapshots with 96.09% combined coverage, plus Ruff, mypy, Core alignment, and package validation.
+- Physical charger validation through HACS remains pending before the Core dependency update is marked ready for review.
 
 ## [0.4.4] - 2026-09-14 (Python library)
 
