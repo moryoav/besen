@@ -15,18 +15,18 @@ through HACS using
 [`moryoav/besen`](https://my.home-assistant.io/redirect/hacs_repository/?owner=moryoav&repository=besen&category=integration),
 then follow the [installation and upgrade guide](https://github.com/moryoav/besen/blob/main/docs/home-assistant-custom-integration.md).
 
-HACS version **0.5.1** uses the accepted Core integration baseline, including
+HACS version **0.5.2** uses the accepted Core integration baseline, including
 [the charger display temperature unit select](https://github.com/home-assistant/core/pull/180888).
-It requires **Home Assistant 2026.9.2 or later** and installs `besen==0.4.4`
-automatically. This library update waits for the charger's response to a start-charging
-request and reports rejection or a missing response as a Home Assistant error.
+It requires **Home Assistant 2026.9.2 or later** and installs `besen==0.4.5`
+automatically. This update fixes charge-start response matching for single-phase
+and three-phase chargers while preserving rejection and timeout reporting.
 
 I keep `main` aligned with accepted Core changes. Stable HACS releases can include
 changes already merged into Core before they appear in a Home Assistant release.
 
-I am validating this library update through HACS before marking
-[the Core dependency PR](https://github.com/home-assistant/core/pull/182194)
-ready for review. HACS 0.5.0 retains its original `besen==0.4.2` dependency.
+I verified the fix with a physical three-phase stop/start and automated single-phase
+compatibility tests. [The Core dependency PR](https://github.com/home-assistant/core/pull/182194)
+tracks the library update. HACS 0.5.0 retains its original `besen==0.4.2` dependency.
 The [alignment inventory](https://github.com/moryoav/besen/blob/main/docs/core-alignment.md)
 records the exact baseline and necessary packaging and upgrade differences.
 

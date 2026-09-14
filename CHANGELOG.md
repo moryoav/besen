@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.5.2] - 2026-09-14 (HACS integration)
+
+### Fixed
+
+- Bump the dependency to `besen==0.4.5` to correct charge-start response matching for both single-phase and three-phase chargers, including three-phase units that report connector 1.
+- Preserve the accepted Core integration baseline and existing entities, settings, Bluetooth write modes, and automation behavior.
+
+### Validation
+
+- Passed 181 tests and 66 snapshots with 96.09% combined coverage, plus Ruff, mypy, Core alignment, and package validation.
+- Verified the published library wheel and a physical three-phase stop/start at 6 A. Automated coverage includes single-phase charging across all supported Bluetooth write modes.
+
 ## [0.4.5] - 2026-09-14 (Python library)
 
 ### Fixed
