@@ -1,18 +1,22 @@
 """Coordinator for Besen push updates."""
 
-from __future__ import annotations
-
+from collections.abc import Awaitable, Callable
+from contextlib import suppress
 import logging
-from collections.abc import Callable
-
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from typing import TYPE_CHECKING, override
 
 from besen.client import BesenClient
 from besen.exceptions import CommandFailed
 from besen.models import BesenData
 
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+
 from .const import DOMAIN
+
+if TYPE_CHECKING:
+    from . import BesenConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,33 +24,51 @@ _LOGGER = logging.getLogger(__name__)
 class BesenCoordinator(DataUpdateCoordinator[BesenData]):
     """Coordinate Besen state updates."""
 
-    def __init__(self, hass: HomeAssistant, client: BesenClient) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        config_entry: BesenConfigEntry,
+        client: BesenClient,
+    ) -> None:
         """Initialize the coordinator."""
 
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=config_entry,
             name=DOMAIN,
-            update_method=self._async_update_data,
         )
         self.client = client
         self._remove_listener: Callable[[], None] | None = None
+        self._client_stopped = True
 
     async def async_start(self) -> None:
         """Start listening to charger updates."""
 
         self._remove_listener = self.client.add_listener(self._handle_client_update)
-        await self.client.async_start()
+        self._client_stopped = False
+        try:
+            await self.client.async_start()
+        except Exception:
+            if self._remove_listener is not None:
+                self._remove_listener()
+                self._remove_listener = None
+            with suppress(Exception):
+                await self._async_stop_client()
+            raise
         self.async_set_updated_data(self.client.state)
 
+    @override
     async def async_shutdown(self) -> None:
         """Stop listening to charger updates."""
 
+        await super().async_shutdown()
         if self._remove_listener is not None:
             self._remove_listener()
             self._remove_listener = None
-        await self.client.async_stop()
+        await self._async_stop_client()
 
+    @override
     async def _async_update_data(self) -> BesenData:
         """Return latest push state for manual refresh requests."""
 
@@ -61,42 +83,39 @@ class BesenCoordinator(DataUpdateCoordinator[BesenData]):
     async def async_start_charging(self) -> None:
         """Start charging."""
 
-        try:
-            await self.client.async_start_charging()
-        except CommandFailed:
-            self.async_set_updated_data(self.client.state)
-            raise
+        await self._async_run_command(self.client.async_start_charging())
 
     async def async_stop_charging(self) -> None:
         """Stop charging."""
 
-        try:
-            await self.client.async_stop_charging()
-        except CommandFailed:
-            self.async_set_updated_data(self.client.state)
-            raise
+        await self._async_run_command(self.client.async_stop_charging())
 
     async def async_set_charge_amps(self, amps: int) -> None:
-        """Set charger amps."""
+        """Set the charging current."""
 
-        await self.client.async_set_charge_amps(amps)
-
-    async def async_set_lcd_brightness(self, brightness: int) -> None:
-        """Set LCD brightness."""
-
-        await self.client.async_set_lcd_brightness(brightness)
+        await self._async_run_command(self.client.async_set_charge_amps(amps))
 
     async def async_set_temperature_unit(self, unit: str) -> None:
-        """Set temperature unit."""
+        """Set the charger display temperature unit."""
 
-        await self.client.async_set_temperature_unit(unit)
+        await self._async_run_command(self.client.async_set_temperature_unit(unit))
 
-    async def async_set_language(self, language: str) -> None:
-        """Set language."""
+    async def _async_run_command(self, command: Awaitable[None]) -> None:
+        """Run a charger command and translate command failures."""
 
-        await self.client.async_set_language(language)
+        try:
+            await command
+        except CommandFailed as err:
+            self.async_set_updated_data(self.client.state)
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="command_failed",
+            ) from err
 
-    async def async_set_device_name(self, name: str) -> None:
-        """Set charger name."""
+    async def _async_stop_client(self) -> None:
+        """Stop the client if it is still running."""
 
-        await self.client.async_set_device_name(name)
+        if self._client_stopped:
+            return
+        await self.client.async_stop()
+        self._client_stopped = True

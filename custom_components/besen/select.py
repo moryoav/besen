@@ -1,52 +1,59 @@
 """Select platform for Besen."""
 
-from __future__ import annotations
-
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from typing import cast
+from typing import Final, override
+
+from besen.models import BesenData
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
-from besen.models import BesenData
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import BesenConfigEntry
-from .const import LANGUAGES, TEMPERATURE_UNITS
 from .coordinator import BesenCoordinator
 from .entity import BesenEntity
 
 PARALLEL_UPDATES = 0
 
+TEMPERATURE_UNIT_OPTIONS: Final = {
+    "celsius": "Celsius",
+    "fahrenheit": "Fahrenheit",
+}
+TEMPERATURE_UNIT_VALUES: Final = {
+    value: key for key, value in TEMPERATURE_UNIT_OPTIONS.items()
+}
+
+
+def _option_value(value: str | None, options: Mapping[str, str]) -> str | None:
+    """Return a Home Assistant option for a charger value."""
+
+    return options.get(value) if value is not None else None
+
 
 @dataclass(frozen=True, kw_only=True)
 class BesenSelectEntityDescription(SelectEntityDescription):
-    """Besen select description."""
+    """Describe a Besen select entity."""
 
-    value_fn: Callable[[BesenData], str | None]
-    set_fn: Callable[[BesenCoordinator, str], Awaitable[None]]
+    current_option_fn: Callable[[BesenData], str | None]
+    option_values: dict[str, str]
+    select_option_fn: Callable[[BesenCoordinator, str], Awaitable[None]]
 
 
-SELECTS: tuple[BesenSelectEntityDescription, ...] = (
-    BesenSelectEntityDescription(
-        key="language",
-        name="Language",
-        value_fn=lambda data: data.config.language,
-        set_fn=lambda coordinator, value: coordinator.async_set_language(value),
-        options=list(LANGUAGES),
-        icon="mdi:translate",
-        entity_category=EntityCategory.CONFIG,
-    ),
+SELECT_DESCRIPTIONS: tuple[BesenSelectEntityDescription, ...] = (
     BesenSelectEntityDescription(
         key="temperature_unit",
-        name="Temperature Unit",
-        value_fn=lambda data: data.config.temperature_unit,
-        set_fn=lambda coordinator, value: coordinator.async_set_temperature_unit(value),
-        options=list(TEMPERATURE_UNITS),
-        icon="mdi:thermometer",
+        translation_key="temperature_unit",
         entity_category=EntityCategory.CONFIG,
+        options=list(TEMPERATURE_UNIT_OPTIONS),
+        current_option_fn=lambda data: _option_value(
+            data.config.temperature_unit, TEMPERATURE_UNIT_VALUES
+        ),
+        option_values=TEMPERATURE_UNIT_OPTIONS,
+        select_option_fn=lambda coordinator, option: (
+            coordinator.async_set_temperature_unit(option)
+        ),
     ),
 )
 
@@ -54,20 +61,18 @@ SELECTS: tuple[BesenSelectEntityDescription, ...] = (
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: BesenConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up Besen selects."""
+    """Set up the Besen select platform."""
 
     async_add_entities(
-        [
-            BesenSelect(entry.runtime_data.coordinator, description)
-            for description in SELECTS
-        ]
+        BesenSelect(entry.runtime_data, description)
+        for description in SELECT_DESCRIPTIONS
     )
 
 
 class BesenSelect(BesenEntity, SelectEntity):
-    """Besen select."""
+    """Representation of a Besen select."""
 
     entity_description: BesenSelectEntityDescription
 
@@ -76,24 +81,23 @@ class BesenSelect(BesenEntity, SelectEntity):
         coordinator: BesenCoordinator,
         description: BesenSelectEntityDescription,
     ) -> None:
-        """Initialize the select."""
+        """Initialize a Besen select."""
 
-        super().__init__(
-            coordinator,
-            description.key,
-            name=cast(str | None, description.name),
-        )
+        super().__init__(coordinator, description.key)
         self.entity_description = description
-        self._attr_options = list(description.options or [])
 
     @property
+    @override
     def current_option(self) -> str | None:
-        """Return the selected option."""
+        """Return the current option."""
 
-        data = self.coordinator.data or self.coordinator.client.state
-        return self.entity_description.value_fn(data)
+        return self.entity_description.current_option_fn(self.coordinator.data)
 
+    @override
     async def async_select_option(self, option: str) -> None:
-        """Select an option."""
+        """Set the selected option."""
 
-        await self.entity_description.set_fn(self.coordinator, option)
+        await self.entity_description.select_option_fn(
+            self.coordinator,
+            self.entity_description.option_values[option],
+        )

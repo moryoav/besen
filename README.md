@@ -9,28 +9,29 @@ integrations.
 
 ## Home Assistant users
 
-I maintain the full-feature Home Assistant custom integration in this repository,
-alongside the Python library. Install **Besen** through HACS using
+I maintain a HACS distribution of the Home Assistant Core Besen integration in
+this repository, alongside the Python communication library. Install **Besen**
+through HACS using
 [`moryoav/besen`](https://my.home-assistant.io/redirect/hacs_repository/?owner=moryoav&repository=besen&category=integration),
 then follow the [installation and upgrade guide](https://github.com/moryoav/besen/blob/main/docs/home-assistant-custom-integration.md).
-Home Assistant installs the Python dependency automatically.
 
-I develop both parts on `main` and publish stable `v*` releases for HACS and PyPI.
-HACS offers the latest stable release when it refreshes the repository; installing
-an update and restarting Home Assistant remain under the user's control.
+HACS version **0.5.0** matches the latest merged Core implementation, including
+[the charger display temperature unit select](https://github.com/home-assistant/core/pull/180888).
+It requires **Home Assistant 2026.9.2 or later** and uses the same `besen==0.4.2`
+communication library as Core. The alignment changes the integration, without
+changing the Bluetooth transport or protocol library.
 
-The built-in Home Assistant integration has a separate release schedule and may
-have fewer features. I submit selected changes to Core in focused pull requests;
-those reviews do not delay releases of the full custom integration here.
+I keep `main` aligned with accepted Core changes. Stable HACS releases can include
+changes already merged into Core before they appear in a Home Assistant release.
+Future development branches will be introduced after this alignment is tested.
+The [alignment inventory](https://github.com/moryoav/besen/blob/main/docs/core-alignment.md)
+records the exact baseline and necessary packaging and upgrade differences.
 
-As of September 11, 2026, the latest supported custom release is **0.4.2**.
-Version 0.4.3 was withdrawn after a possible connection regression was reported.
-If you installed 0.4.3, select 0.4.2 in HACS and restart Home Assistant.
-
-Version 0.4.2 includes the sensor, switch, number, select, and text platforms, plus Bluetooth write-mode
-compatibility for the single-phase BS20 variant reported in issue #1. The reporter
-confirmed setup and readings, but connection instability is still under
-investigation and charging control has not yet been confirmed on that variant.
+**Upgrading from 0.4.x:** language, device-name editing, LCD brightness, extra
+sensors, and custom configuration/diagnostics flows are removed to match Core.
+Status and temperature-option values now use Core's lowercase IDs. Review the
+[upgrade notes](https://github.com/moryoav/besen/blob/main/docs/home-assistant-custom-integration.md#upgrading-from-04x)
+for automation changes. HACS and Python library versions are now independent.
 
 The library has been verified with a Besen BS20 charger. Other Besen chargers that
 advertise as `ACP#...` and use the same BLE protocol may also work.

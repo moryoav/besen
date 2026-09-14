@@ -1,19 +1,19 @@
 """Sensor platform for Besen."""
 
-from __future__ import annotations
-
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Final, override
+
+from besen.models import BesenData
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
+    StateType,
 )
 from homeassistant.const import (
-    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
     EntityCategory,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
@@ -22,208 +22,269 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
-from besen.models import BesenData
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import BesenConfigEntry
-from .const import (
-    CHARGING_STATUS,
-    CHARGING_STATUS_DESCRIPTIONS,
-    CURRENT_STATE,
-    ERRORS,
-    OUTPUT_STATE,
-    PLUG_STATE,
-)
 from .coordinator import BesenCoordinator
 from .entity import BesenEntity
 
 PARALLEL_UPDATES = 0
 
-SensorValue = Callable[[BesenData], Any]
+ERROR_STATES: Final = {
+    "Relay Stick Error": "relay_stick_error",
+    "OFFLINE": "offline",
+    "CC Error": "cc_error",
+    "CP Error": "cp_error",
+    "Emergency Stop": "emergency_stop",
+    "Over Temperature": "over_temperature",
+    "Leakage Protection": "leakage_protection",
+    "Short Circuit": "short_circuit",
+    "Over Current": "over_current",
+    "Ungrounded": "ungrounded",
+    "Over Voltage": "over_voltage",
+    "Low Voltage": "low_voltage",
+    "Input Power Error": "input_power_error",
+    "DLB Over Current - Mains overload": "dlb_over_current",
+    "Diode Short Circuit": "diode_short_circuit",
+    "RTC Failure": "rtc_failure",
+    "Flash Memory Failure": "flash_memory_failure",
+    "EEPROM Failure": "eeprom_failure",
+    "Metering Module Failure": "metering_module_failure",
+    "No Error": "no_error",
+}
+
+CHARGING_STATES: Final = {
+    "Start": "start",
+    "Finish Charging": "finish_charging",
+    "Waiting": "waiting",
+    "Finished": "finished",
+    "Cancel": "canceled",
+    "Connect": "connect",
+    "Fault": "fault",
+}
+
+CHARGING_MESSAGES: Final = {
+    "EV is connected, please press start": "ev_connected_press_start",
+    "Charging": "charging",
+    "Charging has started, waiting for EV.": "waiting_for_ev",
+    "Charging completed": "charging_completed",
+    "Charging reservation.": "charging_reservation",
+    "The plug is not connected, please start charging after connecting.": (
+        "plug_not_connected"
+    ),
+    "See Error State": "see_error_state",
+    "Wait for the swipe to start": "waiting_for_swipe",
+    "Wait for the button to activate": "waiting_for_button",
+}
+
+PLUG_STATES: Final = {
+    "Disconnected": "disconnected",
+    "Connected Unlocked": "connected_unlocked",
+    "Connected Locked": "connected_locked",
+}
+
+OUTPUT_STATES: Final = {
+    "Charging": "charging",
+    "Idle": "idle",
+}
+
+CURRENT_STATES: Final = {
+    "Fault": "fault",
+    "Charging Fault 1": "charging_fault_1",
+    "Charging Fault 2": "charging_fault_2",
+    "Waiting for swipe": "waiting_for_swipe",
+    "Waiting for button": "waiting_for_button",
+    "Not Connected": "not_connected",
+    "Ready to charge": "ready_to_charge",
+    "Charging": "charging",
+    "Completed": "completed",
+    "Completed Full Charge": "completed_full_charge",
+    "Charging Reservation": "charging_reservation",
+}
+
+
+def _enum_state(value: str | None, states: Mapping[str, str]) -> str | None:
+    """Return the stable Home Assistant value for a charger state."""
+
+    return states.get(value) if value is not None else None
 
 
 @dataclass(frozen=True, kw_only=True)
 class BesenSensorEntityDescription(SensorEntityDescription):
-    """Besen sensor description."""
+    """Describe a Besen sensor entity."""
 
-    value_fn: SensorValue
-    options: list[str] | None = None
+    value_fn: Callable[[BesenData], StateType]
+    three_phase_only: bool = False
 
 
-SENSORS: tuple[BesenSensorEntityDescription, ...] = (
-    BesenSensorEntityDescription(
-        key="charging_power",
-        name="Charging power",
-        value_fn=lambda data: data.charge.power,
-        device_class=SensorDeviceClass.POWER,
-        native_unit_of_measurement=UnitOfPower.WATT,
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    BesenSensorEntityDescription(
-        key="total_energy",
-        name="Total energy",
-        value_fn=lambda data: data.charge.total_energy,
-        device_class=SensorDeviceClass.ENERGY,
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-    ),
-    BesenSensorEntityDescription(
-        key="session_energy",
-        name="Session energy",
-        value_fn=lambda data: data.charge.session_energy,
-        device_class=SensorDeviceClass.ENERGY,
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-    ),
-    BesenSensorEntityDescription(
-        key="internal_temperature",
-        name="Internal temperature",
-        value_fn=lambda data: data.charge.inner_temp_c,
-        device_class=SensorDeviceClass.TEMPERATURE,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    BesenSensorEntityDescription(
-        key="external_temperature",
-        name="External temperature",
-        value_fn=lambda data: data.charge.outer_temp,
-        device_class=SensorDeviceClass.TEMPERATURE,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        state_class=SensorStateClass.MEASUREMENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-    ),
-    BesenSensorEntityDescription(
-        key="l1_voltage",
-        name="L1 voltage",
-        value_fn=lambda data: data.charge.l1_voltage,
-        device_class=SensorDeviceClass.VOLTAGE,
-        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
-        state_class=SensorStateClass.MEASUREMENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-    ),
-    BesenSensorEntityDescription(
-        key="l1_current",
-        name="L1 current",
-        value_fn=lambda data: data.charge.l1_amperage,
-        device_class=SensorDeviceClass.CURRENT,
-        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
-        state_class=SensorStateClass.MEASUREMENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-    ),
-    BesenSensorEntityDescription(
-        key="l2_voltage",
-        name="L2 voltage",
-        value_fn=lambda data: data.charge.l2_voltage,
-        device_class=SensorDeviceClass.VOLTAGE,
-        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
-        state_class=SensorStateClass.MEASUREMENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-    ),
-    BesenSensorEntityDescription(
-        key="l2_current",
-        name="L2 current",
-        value_fn=lambda data: data.charge.l2_amperage,
-        device_class=SensorDeviceClass.CURRENT,
-        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
-        state_class=SensorStateClass.MEASUREMENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-    ),
-    BesenSensorEntityDescription(
-        key="l3_voltage",
-        name="L3 voltage",
-        value_fn=lambda data: data.charge.l3_voltage,
-        device_class=SensorDeviceClass.VOLTAGE,
-        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
-        state_class=SensorStateClass.MEASUREMENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-    ),
-    BesenSensorEntityDescription(
-        key="l3_current",
-        name="L3 current",
-        value_fn=lambda data: data.charge.l3_amperage,
-        device_class=SensorDeviceClass.CURRENT,
-        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
-        state_class=SensorStateClass.MEASUREMENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-    ),
-    BesenSensorEntityDescription(
-        key="error_state",
-        name="Error State",
-        value_fn=lambda data: data.charge.error_details,
-        device_class=SensorDeviceClass.ENUM,
-        options=sorted(set(ERRORS.values())),
-        entity_category=EntityCategory.DIAGNOSTIC,
-    ),
+SENSOR_DESCRIPTIONS: tuple[BesenSensorEntityDescription, ...] = (
     BesenSensorEntityDescription(
         key="charging_status",
-        name="Status",
-        value_fn=lambda data: data.charge.charging_status,
+        translation_key="charging_status",
         device_class=SensorDeviceClass.ENUM,
-        options=sorted(set(CHARGING_STATUS.values())),
+        options=list(CHARGING_STATES.values()),
+        value_fn=lambda data: _enum_state(data.charge.charging_status, CHARGING_STATES),
     ),
     BesenSensorEntityDescription(
         key="charging_message",
-        name="Message",
-        value_fn=lambda data: data.charge.charging_status_description,
+        translation_key="charging_message",
         device_class=SensorDeviceClass.ENUM,
-        options=sorted(set(CHARGING_STATUS_DESCRIPTIONS.values())),
+        options=list(CHARGING_MESSAGES.values()),
+        value_fn=lambda data: _enum_state(
+            data.charge.charging_status_description, CHARGING_MESSAGES
+        ),
+    ),
+    BesenSensorEntityDescription(
+        key="error_state",
+        translation_key="error_state",
+        device_class=SensorDeviceClass.ENUM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        options=list(ERROR_STATES.values()),
+        value_fn=lambda data: _enum_state(data.charge.error_details, ERROR_STATES),
     ),
     BesenSensorEntityDescription(
         key="plug_state",
-        name="Plug State",
-        value_fn=lambda data: data.charge.plug_state,
+        translation_key="plug_state",
         device_class=SensorDeviceClass.ENUM,
-        options=PLUG_STATE,
         entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        options=list(PLUG_STATES.values()),
+        value_fn=lambda data: _enum_state(data.charge.plug_state, PLUG_STATES),
     ),
     BesenSensorEntityDescription(
         key="output_state",
-        name="Output State",
-        value_fn=lambda data: data.charge.output_state,
+        translation_key="output_state",
         device_class=SensorDeviceClass.ENUM,
-        options=OUTPUT_STATE,
         entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        options=list(OUTPUT_STATES.values()),
+        value_fn=lambda data: _enum_state(data.charge.output_state, OUTPUT_STATES),
     ),
     BesenSensorEntityDescription(
         key="current_state",
-        name="Current State",
-        value_fn=lambda data: data.charge.current_state,
+        translation_key="current_state",
         device_class=SensorDeviceClass.ENUM,
-        options=CURRENT_STATE,
-        entity_category=EntityCategory.DIAGNOSTIC,
-    ),
-    BesenSensorEntityDescription(
-        key="rssi",
-        name="RSSI",
-        value_fn=lambda data: data.config.rssi,
-        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
-        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
+        options=list(CURRENT_STATES.values()),
+        value_fn=lambda data: _enum_state(data.charge.current_state, CURRENT_STATES),
     ),
     BesenSensorEntityDescription(
-        key="system_time",
-        name="System Time",
-        value_fn=lambda data: data.config.system_time,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-        icon="mdi:clock-outline",
+        key="charging_power",
+        translation_key="charging_power",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda data: data.charge.power,
     ),
     BesenSensorEntityDescription(
-        key="software_version",
-        name="Software Version",
-        value_fn=lambda data: data.info.software_version,
+        key="total_energy",
+        translation_key="total_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=2,
+        value_fn=lambda data: data.charge.total_energy,
+    ),
+    BesenSensorEntityDescription(
+        key="session_energy",
+        translation_key="session_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=2,
+        value_fn=lambda data: data.charge.session_energy,
+    ),
+    BesenSensorEntityDescription(
+        key="internal_temperature",
+        translation_key="internal_temperature",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda data: data.charge.inner_temp_c,
+    ),
+    BesenSensorEntityDescription(
+        key="external_temperature",
+        translation_key="external_temperature",
+        device_class=SensorDeviceClass.TEMPERATURE,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
-        icon="mdi:code-tags",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda data: data.charge.outer_temp,
+    ),
+    BesenSensorEntityDescription(
+        key="l1_voltage",
+        translation_key="l1_voltage",
+        device_class=SensorDeviceClass.VOLTAGE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda data: data.charge.l1_voltage,
+    ),
+    BesenSensorEntityDescription(
+        key="l1_current",
+        translation_key="l1_current",
+        device_class=SensorDeviceClass.CURRENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda data: data.charge.l1_amperage,
+    ),
+    BesenSensorEntityDescription(
+        key="l2_voltage",
+        translation_key="l2_voltage",
+        device_class=SensorDeviceClass.VOLTAGE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        three_phase_only=True,
+        value_fn=lambda data: data.charge.l2_voltage,
+    ),
+    BesenSensorEntityDescription(
+        key="l2_current",
+        translation_key="l2_current",
+        device_class=SensorDeviceClass.CURRENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        three_phase_only=True,
+        value_fn=lambda data: data.charge.l2_amperage,
+    ),
+    BesenSensorEntityDescription(
+        key="l3_voltage",
+        translation_key="l3_voltage",
+        device_class=SensorDeviceClass.VOLTAGE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        three_phase_only=True,
+        value_fn=lambda data: data.charge.l3_voltage,
+    ),
+    BesenSensorEntityDescription(
+        key="l3_current",
+        translation_key="l3_current",
+        device_class=SensorDeviceClass.CURRENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        three_phase_only=True,
+        value_fn=lambda data: data.charge.l3_amperage,
     ),
 )
 
@@ -231,24 +292,20 @@ SENSORS: tuple[BesenSensorEntityDescription, ...] = (
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: BesenConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up Besen sensors."""
 
-    coordinator = entry.runtime_data.coordinator
-    data = coordinator.data or coordinator.client.state
-    sensors = [
+    coordinator = entry.runtime_data
+    async_add_entities(
         BesenSensor(coordinator, description)
-        for description in SENSORS
-        if data.info.phases == 3
-        or description.key
-        not in {"l2_voltage", "l2_current", "l3_voltage", "l3_current"}
-    ]
-    async_add_entities(sensors)
+        for description in SENSOR_DESCRIPTIONS
+        if not description.three_phase_only or coordinator.data.info.phases == 3
+    )
 
 
 class BesenSensor(BesenEntity, SensorEntity):
-    """Besen sensor."""
+    """Representation of a Besen sensor."""
 
     entity_description: BesenSensorEntityDescription
 
@@ -257,30 +314,14 @@ class BesenSensor(BesenEntity, SensorEntity):
         coordinator: BesenCoordinator,
         description: BesenSensorEntityDescription,
     ) -> None:
-        """Initialize the sensor."""
+        """Initialize a Besen sensor."""
 
-        super().__init__(
-            coordinator,
-            description.key,
-            name=cast(str | None, description.name),
-        )
+        super().__init__(coordinator, description.key)
         self.entity_description = description
 
     @property
-    def native_value(self) -> Any:
+    @override
+    def native_value(self) -> StateType:
         """Return the sensor value."""
 
-        data = self.coordinator.data or self.coordinator.client.state
-        return self.entity_description.value_fn(data)
-
-    @property
-    def available(self) -> bool:
-        """Return entity availability."""
-
-        return super().available and self.native_value is not None
-
-    @property
-    def options(self) -> list[str] | None:
-        """Return enum options."""
-
-        return self.entity_description.options
+        return self.entity_description.value_fn(self.coordinator.data)

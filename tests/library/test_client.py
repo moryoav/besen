@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections import Counter
 from collections.abc import Callable
+import logging
 from typing import Any, cast
-
-import pytest
-from bleak.backends.device import BLEDevice
 
 from besen import client as client_module
 from besen.client import BesenClient
@@ -23,14 +20,11 @@ from besen.const import (
     REV_WRITE_UUID,
     WRITE_UUID,
 )
-from besen.exceptions import (
-    CannotConnect,
-    CommandFailed,
-    InvalidAuth,
-    ProtocolError,
-)
+from besen.exceptions import CannotConnect, CommandFailed, InvalidAuth, ProtocolError
 from besen.models import BoardRevision, CharacteristicPair
 from besen.protocol import PARSERS, build_command, parse_packet
+from bleak.backends.device import BLEDevice
+import pytest
 
 EVSE_IDENTIFIER = "8949281891483449"
 
@@ -281,12 +275,12 @@ def test_unavailable_warning_is_rate_limited(
 
     client = _client(_FakeBleakClient([]), monkeypatch)
     times = iter([100.0, 200.0, 701.0])
-    monkeypatch.setattr("besen.client.time.monotonic", lambda: next(times))
-
-    with caplog.at_level(logging.WARNING):
-        client._log_unavailable_warning("watchdog timeout")
-        client._log_unavailable_warning("watchdog timeout")
-        client._log_unavailable_warning("watchdog timeout")
+    with monkeypatch.context() as patcher:
+        patcher.setattr("besen.client.time.monotonic", lambda: next(times))
+        with caplog.at_level(logging.WARNING):
+            client._log_unavailable_warning("watchdog timeout")
+            client._log_unavailable_warning("watchdog timeout")
+            client._log_unavailable_warning("watchdog timeout")
 
     assert [record.getMessage() for record in caplog.records] == [
         "watchdog timeout",

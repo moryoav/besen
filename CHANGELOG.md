@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.5.0] - 2026-09-14
+
+### Changed
+
+- Aligned the HACS integration with Home Assistant Core commit `1d38f3627ba11a1951784d93eb9f1ae019bd547e`, including PR #180888 and the earlier charging-current, status-sensor, and hardware-variant changes.
+- Adopted Core setup, translated states, unknown-value handling, availability, entity defaults, and charger-screen temperature-unit control.
+- Preserved existing entries and charging-current entity IDs through an upgrade adapter.
+- Required Home Assistant 2026.9.2 or later for the custom integration.
+- Kept the communication library unchanged at `besen==0.4.2`; separated HACS release numbering from Python library publishing.
+
+### Breaking
+
+- Removed language selection, charger-name editing, LCD brightness, RSSI/system-time/software-version sensor entities, the sync-clock option, and custom reauthentication, reconfiguration, diagnostics, and repair flows to match Core.
+- Replaced raw status strings and temperature options with Core's stable lowercase IDs. Update automation comparisons and select action values as described in the upgrade guide.
+
+### Validation
+
+- Replaced lightweight integration stubs with Core-derived Home Assistant tests and added coverage for upgrades, entity identity preservation, and repeated setup.
+- Added a recorded Core baseline and an automated check for unintended divergence.
+
 ## [0.4.3] - Withdrawn 2026-09-11
 
 - Withdrawn the September 9 release following a report that initial connection no longer succeeds. A regression is suspected but has not been confirmed.

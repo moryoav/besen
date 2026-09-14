@@ -1,0 +1,20 @@
+{
+  "repository": "home-assistant/core",
+  "commit": "1d38f3627ba11a1951784d93eb9f1ae019bd547e",
+  "pull_request": 180888,
+  "files": {
+    "config_flow.py": "9b4f21961b20cfe322ecaad56b3142420a8f5075c894e78c5d03b9e737d8f4d6",
+    "const.py": "6b82e1ec3c37d5e34d6b0f307fef2e6a3273b98b7dee66a5535b076383f08f58",
+    "coordinator.py": "d080bedf4be29e8f59ec3fc601908614f628dd628e4484e45eb2301bfe1370dd",
+    "entity.py": "8bff5e249fd3e33a6ab319903edf6c0057337d5607c91a73eb33351f85985590",
+    "icons.json": "35b91f767718a9249ee955cf9eeca6e7bc5a54fd3c0d3d59edd13eefaf784e2b",
+    "manifest.json": "1447995bb7acc39c862804665c5c9b304c7c3989b92089a0f86921df9f5f1975",
+    "number.py": "1e28afd96e4ae7453e68bfd8ce241c3930ff3c22b1316131a23e83864e9808ca",
+    "quality_scale.yaml": "0143dedd2b74d83d6c521a9c1797f4f8db90652ff931976585f8cfc86ca70542",
+    "select.py": "8b5754daab7f5ac49b0f4c14d0a4d7896c011f621300bfe622bd27905483fb97",
+    "sensor.py": "f37b160abb245cf8e3b40098b2cf8444046511cb919fe9c766b143ab766acb27",
+    "strings.json": "0c905beb4b62c0766c2fcb3fa32e42ba2af4ea4109b2823f8b358d0f8c88a676",
+    "switch.py": "72479bdd94d4983b0497c2482ec8118080f7747bd5bc5389e221cdfef8b8fc9d",
+    "__init__.py": "a49d96b831ed934e5f249553a7ea566bd340a2d3ca2d59188be7d992ea356349"
+  }
+}

@@ -17,8 +17,32 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
+      - name: Validate release versions
+        id: versions
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import tomllib
+          from pathlib import Path
+
+          tag = os.environ["RELEASE_TAG"]
+          version = tag.removeprefix("v")
+          manifest = json.loads(Path("custom_components/besen/manifest.json").read_text())
+          library_version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          if tag.startswith("v") and version != manifest["version"]:
+              raise SystemExit("Release tag must match the HACS manifest version")
+          publish_library = tag.startswith("v") and version == library_version
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"publish_library={str(publish_library).lower()}\n")
+          PY
+      - name: Check Core alignment
+        run: python scripts/check_core_alignment.py
       - name: Build Python package
+        if: steps.versions.outputs.publish_library == 'true'
         run: |
           python -m pip install --upgrade pip build
           python -m build
@@ -43,12 +67,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            dist/* \
+          assets=()
+          if [[ -d dist ]]; then
+            assets=(dist/*)
+          fi
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
             --title "$GITHUB_REF_NAME" \
             --notes-file release-notes.md \
             --verify-tag
       - name: Publish Python package to PyPI
+        if: steps.versions.outputs.publish_library == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true

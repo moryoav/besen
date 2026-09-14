@@ -33,12 +33,15 @@ Changelog = "https://github.com/moryoav/besen/blob/main/CHANGELOG.md"
 [project.optional-dependencies]
 dev = [
   "build>=1.2.0",
-  "homeassistant>=2025.1.0",
+  "pytest-homeassistant-custom-component==0.13.365",
+  "aiousbwatcher==1.1.2",
+  "serialx==1.10.0",
+  "habluetooth==6.26.11",
   "mypy>=1.16.0",
   "pytest>=8.0.0",
   "pytest-asyncio>=0.23.0",
   "pytest-cov>=5.0.0",
-  "ruff>=0.8.0",
+  "ruff==0.16.6",
   "twine>=6.0.0",
 ]
 
@@ -63,25 +66,54 @@ show_missing = true
 skip_covered = true
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py314"
 line-length = 88
 
 [tool.ruff.lint]
 select = ["A", "ASYNC", "B", "C4", "DTZ", "E", "F", "FA", "I", "ICN", "N", "PERF", "PIE", "PTH", "RET", "RUF", "SIM", "T20", "UP", "W"]
 ignore = ["ASYNC109", "N818"]
 
+[tool.ruff.lint.per-file-ignores]
+# Preserve the unchanged library's existing import layout.
+"src/besen/*.py" = ["I001"]
+
 [tool.ruff.lint.isort]
-known-first-party = ["besen", "custom_components.besen"]
+force-sort-within-sections = true
+combine-as-imports = true
+split-on-trailing-comma = false
+known-first-party = ["custom_components.besen"]
+known-third-party = ["besen"]
+section-order = ["future", "standard-library", "third-party", "homeassistant", "first-party", "local-folder"]
+
+[tool.ruff.lint.isort.sections]
+homeassistant = ["homeassistant"]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 strict = true
 warn_unreachable = true
 explicit_package_bases = true
 mypy_path = "src"
-files = ["src/besen", "custom_components/besen", "tests"]
+files = ["src/besen", "custom_components/besen", "tests/library", "tests/integration/test_migration.py"]
 exclude = ["build", "dist", "besen.egg-info", "besen_bs20.egg-info", "ha_besen_bs20.egg-info"]
 
 [[tool.mypy.overrides]]
 module = ["bleak.*", "bleak_retry_connector.*"]
 ignore_missing_imports = true
+
+# Core does not type-check its integration test suite; check the library and
+# HACS upgrade tests here, and run the complete Core-derived tests with pytest.
+[[tool.mypy.overrides]]
+module = ["pytest_homeassistant_custom_component.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["homeassistant.*"]
+implicit_reexport = true
+
+# Stable HA 2026.9.2 still annotates async_show_form with voluptuous.Schema.
+# The accepted Core implementation uses probatio.Schema and is checked byte for
+# byte by check_core_alignment.py, plus exercised on stable HA in integration tests.
+[[tool.mypy.overrides]]
+module = ["custom_components.besen.config_flow"]
+disable_error_code = ["arg-type"]

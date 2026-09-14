@@ -1,120 +1,62 @@
 """Number platform for Besen."""
 
-from __future__ import annotations
+from typing import override
 
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
-from typing import cast
+from besen.const import FALLBACK_MAX_CHARGE_AMPS, MIN_CHARGE_AMPS
 
-from homeassistant.components.number import (
-    NumberEntity,
-    NumberEntityDescription,
-    NumberMode,
-)
-from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfElectricCurrent
+from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
+from homeassistant.const import EntityCategory, UnitOfElectricCurrent
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
-from besen.models import BesenData
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import BesenConfigEntry
-from .const import FALLBACK_MAX_CHARGE_AMPS, MIN_CHARGE_AMPS
 from .coordinator import BesenCoordinator
 from .entity import BesenEntity
 
 PARALLEL_UPDATES = 0
 
 
-@dataclass(frozen=True, kw_only=True)
-class BesenNumberEntityDescription(NumberEntityDescription):
-    """Besen number description."""
-
-    value_fn: Callable[[BesenData], float | None]
-    set_fn: Callable[[BesenCoordinator, float], Awaitable[None]]
-    max_fn: Callable[[BesenData], float]
-
-
-NUMBERS: tuple[BesenNumberEntityDescription, ...] = (
-    BesenNumberEntityDescription(
-        key="charge_amps",
-        name="Charge Amps",
-        value_fn=lambda data: data.config.charge_amps,
-        set_fn=lambda coordinator, value: coordinator.async_set_charge_amps(int(value)),
-        max_fn=lambda data: data.info.output_max_amps or FALLBACK_MAX_CHARGE_AMPS,
-        native_min_value=MIN_CHARGE_AMPS,
-        native_step=1,
-        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
-        mode=NumberMode.BOX,
-        icon="mdi:current-ac",
-    ),
-    BesenNumberEntityDescription(
-        key="lcd_brightness",
-        name="LCD Brightness",
-        value_fn=lambda data: data.config.lcd_brightness,
-        set_fn=lambda coordinator, value: coordinator.async_set_lcd_brightness(
-            int(value)
-        ),
-        max_fn=lambda data: 100,
-        native_min_value=1,
-        native_step=1,
-        native_unit_of_measurement=PERCENTAGE,
-        mode=NumberMode.SLIDER,
-        icon="mdi:brightness-percent",
-        entity_category=EntityCategory.CONFIG,
-        entity_registry_enabled_default=False,
-    ),
-)
-
-
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: BesenConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up Besen numbers."""
+    """Set up the Besen number platform."""
 
-    async_add_entities(
-        [
-            BesenNumber(entry.runtime_data.coordinator, description)
-            for description in NUMBERS
-        ]
-    )
+    async_add_entities([BesenChargingCurrentNumber(entry.runtime_data)])
 
 
-class BesenNumber(BesenEntity, NumberEntity):
-    """Besen number entity."""
+class BesenChargingCurrentNumber(BesenEntity, NumberEntity):
+    """Charging current control."""
 
-    entity_description: BesenNumberEntityDescription
+    _attr_device_class = NumberDeviceClass.CURRENT
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_mode = NumberMode.BOX
+    _attr_native_min_value = MIN_CHARGE_AMPS
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
 
-    def __init__(
-        self,
-        coordinator: BesenCoordinator,
-        description: BesenNumberEntityDescription,
-    ) -> None:
-        """Initialize the number."""
+    def __init__(self, coordinator: BesenCoordinator) -> None:
+        """Initialize the charging current control."""
 
-        super().__init__(
-            coordinator,
-            description.key,
-            name=cast(str | None, description.name),
-        )
-        self.entity_description = description
+        super().__init__(coordinator, "charging_current")
 
     @property
-    def native_value(self) -> float | None:
-        """Return the number value."""
-
-        data = self.coordinator.data or self.coordinator.client.state
-        return self.entity_description.value_fn(data)
-
-    @property
+    @override
     def native_max_value(self) -> float:
-        """Return dynamic max value."""
+        """Return the maximum charging current."""
 
-        data = self.coordinator.data or self.coordinator.client.state
-        return self.entity_description.max_fn(data)
+        return self.coordinator.data.info.output_max_amps or FALLBACK_MAX_CHARGE_AMPS
 
+    @property
+    @override
+    def native_value(self) -> float | None:
+        """Return the configured charging current."""
+
+        return self.coordinator.data.config.charge_amps
+
+    @override
     async def async_set_native_value(self, value: float) -> None:
-        """Set a number value."""
+        """Set the charging current."""
 
-        await self.entity_description.set_fn(self.coordinator, value)
+        await self.coordinator.async_set_charge_amps(int(value))

@@ -1,26 +1,28 @@
 """Config flow for Besen."""
 
-from __future__ import annotations
-
 import logging
-from typing import TYPE_CHECKING, Any
-
-import voluptuous as vol
-from homeassistant import config_entries
-from homeassistant.components import bluetooth
-from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
-from homeassistant.const import CONF_ADDRESS, CONF_NAME, CONF_PIN
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import selector
+from typing import TYPE_CHECKING, Any, override
 
 from besen.client import BesenClient
 from besen.const import DEFAULT_PIN
 from besen.exceptions import CannotConnect, InvalidAuth, NoConnectablePath
+import probatio
 
-from .const import CONF_SYNC_CLOCK, DEFAULT_SYNC_CLOCK, DOMAIN
+from homeassistant import config_entries
+from homeassistant.components import bluetooth
+from homeassistant.components.bluetooth import (
+    BluetoothServiceInfoBleak,
+    async_discovered_service_info,
+)
+from homeassistant.const import CONF_ADDRESS, CONF_NAME, CONF_PIN
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import selector
+
+from .const import DOMAIN
 
 if TYPE_CHECKING:
     from bleak.backends.device import BLEDevice
+
     from homeassistant.config_entries import ConfigFlowResult
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,35 +34,33 @@ def _normalize_address(address: str) -> str:
     return address.strip().upper()
 
 
-def _pin_schema() -> selector.TextSelector:
-    """Return a password text selector for PIN fields."""
-
-    return selector.TextSelector(
-        selector.TextSelectorConfig(
-            type=selector.TextSelectorType.PASSWORD,
-        )
+PIN_SCHEMA = selector.TextSelector(
+    selector.TextSelectorConfig(
+        type=selector.TextSelectorType.PASSWORD,
     )
+)
+
+PIN_ONLY_SCHEMA = probatio.Schema(
+    {
+        probatio.Required(CONF_PIN, default=DEFAULT_PIN): PIN_SCHEMA,
+    }
+)
 
 
-def _manual_schema() -> vol.Schema:
-    """Return manual setup schema."""
+def _user_schema(
+    discoveries: dict[str, BluetoothServiceInfoBleak],
+) -> probatio.Schema:
+    """Return the user step schema."""
 
-    return vol.Schema(
+    return probatio.Schema(
         {
-            vol.Required(CONF_ADDRESS): selector.TextSelector(),
-            vol.Required(CONF_PIN, default=DEFAULT_PIN): _pin_schema(),
-            vol.Optional(CONF_SYNC_CLOCK, default=DEFAULT_SYNC_CLOCK): bool,
-        }
-    )
-
-
-def _pin_only_schema() -> vol.Schema:
-    """Return PIN-only setup schema."""
-
-    return vol.Schema(
-        {
-            vol.Required(CONF_PIN, default=DEFAULT_PIN): _pin_schema(),
-            vol.Optional(CONF_SYNC_CLOCK, default=DEFAULT_SYNC_CLOCK): bool,
+            probatio.Required(CONF_ADDRESS): probatio.In(
+                {
+                    address: discovery.name or address
+                    for address, discovery in discoveries.items()
+                }
+            ),
+            probatio.Required(CONF_PIN, default=DEFAULT_PIN): PIN_SCHEMA,
         }
     )
 
@@ -71,11 +71,10 @@ async def _async_validate_input(
     address: str,
     pin: str,
     name: str | None,
-    sync_clock: bool,
 ) -> str:
     """Validate setup by logging into the charger."""
 
-    if len(pin) != 6 or not pin.isdigit():
+    if len(pin) != 6 or not pin.isdecimal():
         raise InvalidAuth("PIN must be exactly 6 digits")
 
     def _ble_device_provider() -> BLEDevice | None:
@@ -86,9 +85,7 @@ async def _async_validate_input(
         )
 
     if _ble_device_provider() is None:
-        request_active_scan = getattr(bluetooth, "async_request_active_scan", None)
-        if callable(request_active_scan):
-            await request_active_scan(hass)
+        await bluetooth.async_request_active_scan(hass)
 
     if _ble_device_provider() is None:
         raise NoConnectablePath("No connectable Bluetooth path is available")
@@ -99,7 +96,6 @@ async def _async_validate_input(
         ble_device_provider=_ble_device_provider,
         logger=_LOGGER,
         advertised_name=name,
-        sync_clock=sync_clock,
     )
     try:
         await client.async_start()
@@ -119,7 +115,9 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         self._discovered_address: str | None = None
         self._discovered_name: str | None = None
+        self._discovered_devices: dict[str, BluetoothServiceInfoBleak] = {}
 
+    @override
     async def async_step_bluetooth(
         self,
         discovery_info: BluetoothServiceInfoBleak,
@@ -154,30 +152,18 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             pin = user_input[CONF_PIN]
-            sync_clock = user_input.get(CONF_SYNC_CLOCK, DEFAULT_SYNC_CLOCK)
             try:
                 title = await _async_validate_input(
                     self.hass,
                     address=self._discovered_address,
                     pin=pin,
                     name=self._discovered_name,
-                    sync_clock=sync_clock,
                 )
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
-            except NoConnectablePath as err:
-                _LOGGER.warning(
-                    "Besen setup failed for %s: %s",
-                    self._discovered_address,
-                    err,
-                )
+            except NoConnectablePath:
                 errors["base"] = "no_connectable_path"
-            except CannotConnect as err:
-                _LOGGER.warning(
-                    "Besen setup failed for %s: %s",
-                    self._discovered_address,
-                    err,
-                )
+            except CannotConnect:
                 errors["base"] = "cannot_connect"
             except Exception:
                 _LOGGER.exception("Unexpected Besen setup error")
@@ -190,15 +176,15 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_NAME: self._discovered_name,
                         CONF_PIN: pin,
                     },
-                    options={CONF_SYNC_CLOCK: sync_clock},
                 )
 
         return self.async_show_form(
             step_id="bluetooth_confirm",
-            data_schema=_pin_only_schema(),
+            data_schema=PIN_ONLY_SCHEMA,
             errors=errors,
         )
 
+    @override
     async def async_step_user(
         self,
         user_input: dict[str, Any] | None = None,
@@ -207,26 +193,23 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         errors: dict[str, str] = {}
         if user_input is not None:
-            address = _normalize_address(user_input[CONF_ADDRESS])
+            address = user_input[CONF_ADDRESS]
             pin = user_input[CONF_PIN]
-            sync_clock = user_input.get(CONF_SYNC_CLOCK, DEFAULT_SYNC_CLOCK)
-            await self.async_set_unique_id(address)
+            discovery_info = self._discovered_devices[address]
+            await self.async_set_unique_id(address, raise_on_progress=False)
             self._abort_if_unique_id_configured()
             try:
                 title = await _async_validate_input(
                     self.hass,
                     address=address,
                     pin=pin,
-                    name=None,
-                    sync_clock=sync_clock,
+                    name=discovery_info.name,
                 )
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
-            except NoConnectablePath as err:
-                _LOGGER.warning("Besen setup failed for %s: %s", address, err)
+            except NoConnectablePath:
                 errors["base"] = "no_connectable_path"
-            except CannotConnect as err:
-                _LOGGER.warning("Besen setup failed for %s: %s", address, err)
+            except CannotConnect:
                 errors["base"] = "cannot_connect"
             except Exception:
                 _LOGGER.exception("Unexpected Besen setup error")
@@ -236,129 +219,29 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     title=title,
                     data={
                         CONF_ADDRESS: address,
+                        CONF_NAME: discovery_info.name,
                         CONF_PIN: pin,
                     },
-                    options={CONF_SYNC_CLOCK: sync_clock},
                 )
+
+        if not self._discovered_devices:
+            await bluetooth.async_request_active_scan(self.hass)
+            current_addresses = self._async_current_ids(include_ignore=False)
+            for discovery_info in async_discovered_service_info(self.hass):
+                address = _normalize_address(discovery_info.address)
+                if (
+                    address in current_addresses
+                    or address in self._discovered_devices
+                    or not (discovery_info.name or "").startswith("ACP#")
+                ):
+                    continue
+                self._discovered_devices[address] = discovery_info
+
+        if not self._discovered_devices:
+            return self.async_abort(reason="no_devices_found")
 
         return self.async_show_form(
             step_id="user",
-            data_schema=_manual_schema(),
-            errors=errors,
-        )
-
-    async def async_step_reauth(
-        self,
-        entry_data: dict[str, Any],
-    ) -> ConfigFlowResult:
-        """Handle reauthentication."""
-
-        self._discovered_address = entry_data[CONF_ADDRESS]
-        self._discovered_name = entry_data.get(CONF_NAME)
-        return await self.async_step_reauth_confirm()
-
-    async def async_step_reauth_confirm(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> ConfigFlowResult:
-        """Ask the user for a new PIN."""
-
-        errors: dict[str, str] = {}
-        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
-        assert entry is not None
-        address = entry.data[CONF_ADDRESS]
-        if user_input is not None:
-            pin = user_input[CONF_PIN]
-            try:
-                await _async_validate_input(
-                    self.hass,
-                    address=address,
-                    pin=pin,
-                    name=entry.data.get(CONF_NAME),
-                    sync_clock=entry.options.get(CONF_SYNC_CLOCK, DEFAULT_SYNC_CLOCK),
-                )
-            except InvalidAuth:
-                errors["base"] = "invalid_auth"
-            except NoConnectablePath as err:
-                _LOGGER.warning("Besen reauth failed for %s: %s", address, err)
-                errors["base"] = "no_connectable_path"
-            except CannotConnect as err:
-                _LOGGER.warning("Besen reauth failed for %s: %s", address, err)
-                errors["base"] = "cannot_connect"
-            except Exception:
-                _LOGGER.exception("Unexpected Besen reauth error")
-                errors["base"] = "unknown"
-            else:
-                return self.async_update_reload_and_abort(
-                    entry,
-                    data_updates={CONF_PIN: pin},
-                )
-
-        return self.async_show_form(
-            step_id="reauth_confirm",
-            data_schema=vol.Schema({vol.Required(CONF_PIN): _pin_schema()}),
-            errors=errors,
-        )
-
-    async def async_step_reconfigure(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> ConfigFlowResult:
-        """Handle UI reconfiguration."""
-
-        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
-        assert entry is not None
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            pin = user_input[CONF_PIN]
-            sync_clock = user_input.get(CONF_SYNC_CLOCK, DEFAULT_SYNC_CLOCK)
-            try:
-                await _async_validate_input(
-                    self.hass,
-                    address=entry.data[CONF_ADDRESS],
-                    pin=pin,
-                    name=entry.data.get(CONF_NAME),
-                    sync_clock=sync_clock,
-                )
-            except InvalidAuth:
-                errors["base"] = "invalid_auth"
-            except NoConnectablePath as err:
-                _LOGGER.warning(
-                    "Besen reconfigure failed for %s: %s",
-                    entry.data[CONF_ADDRESS],
-                    err,
-                )
-                errors["base"] = "no_connectable_path"
-            except CannotConnect as err:
-                _LOGGER.warning(
-                    "Besen reconfigure failed for %s: %s",
-                    entry.data[CONF_ADDRESS],
-                    err,
-                )
-                errors["base"] = "cannot_connect"
-            except Exception:
-                _LOGGER.exception("Unexpected Besen reconfigure error")
-                errors["base"] = "unknown"
-            else:
-                return self.async_update_reload_and_abort(
-                    entry,
-                    data_updates={CONF_PIN: pin},
-                    options={CONF_SYNC_CLOCK: sync_clock},
-                )
-
-        return self.async_show_form(
-            step_id="reconfigure",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_PIN, default=entry.data[CONF_PIN]): _pin_schema(),
-                    vol.Optional(
-                        CONF_SYNC_CLOCK,
-                        default=entry.options.get(
-                            CONF_SYNC_CLOCK,
-                            DEFAULT_SYNC_CLOCK,
-                        ),
-                    ): bool,
-                }
-            ),
+            data_schema=_user_schema(self._discovered_devices),
             errors=errors,
         )
