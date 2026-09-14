@@ -23,6 +23,7 @@ HACS 0.5.0 aligns with Home Assistant Core commit `1d38f3627ba11a1951784d93eb9f1
 
 ## Necessary differences from Core
 
+- Development `main` uses `besen==0.4.4` for start-charging response handling while the pinned Core baseline uses `0.4.2`. This exact dependency override is recorded in `core-baseline.json`; all other baseline checks remain enforced. Published HACS 0.5.0 keeps its original 0.4.2 dependency.
 - Custom manifest version, repository documentation and issue links, bundled branding, and English translations.
 - A small upgrade adapter fills the name missing from old manual entries, retires the old sync-clock option and repair issues, and migrates the charging-current unique ID. Existing entity IDs, names, history, and user-selected enabled states are retained. Removed entities can remain as unavailable registry entries until users remove them.
 - Home Assistant 2026.9.2 or later is required by this release and is the integration test baseline. The Python library itself retains Python 3.12 compatibility.

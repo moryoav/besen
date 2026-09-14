@@ -23,6 +23,10 @@ changing the Bluetooth transport or protocol library.
 
 I keep `main` aligned with accepted Core changes. Stable HACS releases can include
 changes already merged into Core before they appear in a Home Assistant release.
+
+Development `main` now uses `besen==0.4.4` for start-charging response handling,
+with the dependency difference recorded in the alignment inventory. Published
+HACS 0.5.0 retains `besen==0.4.2` until the next integration release.
 Future development branches will be introduced after this alignment is tested.
 The [alignment inventory](https://github.com/moryoav/besen/blob/main/docs/core-alignment.md)
 records the exact baseline and necessary packaging and upgrade differences.

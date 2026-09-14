@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [Unreleased] (HACS integration)
+
+### Changed
+
+- Bump the development integration dependency to `besen==0.4.4` so rejected or unconfirmed charging requests raise Home Assistant errors.
+- Record the dependency override while preserving the accepted Core source baseline and its alignment checks.
+
 ## [0.4.4] - 2026-09-14 (Python library)
 
 ### Fixed

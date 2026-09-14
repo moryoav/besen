@@ -8,7 +8,9 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def canonical(name: str, content: str) -> str:
+def canonical(
+    name: str, content: str, dependency_override: dict[str, str] | None = None
+) -> str:
     """Normalize packaging fields and the explicit legacy-entry adapter."""
     if name == "__init__.py":
         content = content.replace(
@@ -21,6 +23,10 @@ def canonical(name: str, content: str) -> str:
             data.pop("version", None)
             data.pop("issue_tracker", None)
             data["documentation"] = "https://www.home-assistant.io/integrations/besen"
+            if dependency_override is not None:
+                if data["requirements"] != [dependency_override["development"]]:
+                    raise SystemExit("Unexpected development library requirement")
+                data["requirements"] = [dependency_override["baseline"]]
         return json.dumps(data, sort_keys=True)
     return content
 
@@ -30,7 +36,11 @@ def main() -> None:
     baseline = json.loads((ROOT / "core-baseline.json").read_text(encoding="utf-8"))
     integration = ROOT / "custom_components/besen"
     for name, expected in baseline["files"].items():
-        text = canonical(name, (integration / name).read_text(encoding="utf-8"))
+        text = canonical(
+            name,
+            (integration / name).read_text(encoding="utf-8"),
+            baseline.get("dependency_override"),
+        )
         actual = hashlib.sha256(text.encode()).hexdigest()
         if actual != expected:
             raise SystemExit(f"Unexpected Core divergence in {name}")
