@@ -670,7 +670,6 @@ async def test_client_public_commands_and_listeners(
     await client.async_start()
     await client.async_start_charging()
     await client.async_stop_charging()
-    await client.async_set_charge_amps(16)
     await client.async_set_lcd_brightness(150)
     await client.async_set_temperature_unit("Fahrenheit")
     await client.async_set_temperature_unit("Celcius")
@@ -1609,8 +1608,9 @@ async def test_disconnect_recovery_waits_for_authentication(
                 if second.notification_callback is not None:
                     break
             assert second.notification_callback is not None
-            assert client.state.available
-            assert not client.state.authenticated
+            state_before_login = client.state
+            assert state_before_login.available
+            assert not state_before_login.authenticated
             assert len(caplog.records) == 1
             for packet in _login_packets():
                 second.notification_callback(1, bytearray(packet))
@@ -1792,4 +1792,61 @@ async def test_write_failures_log_one_outage(
             "Besen ACP#Garage is unavailable: "
             "Failed to send set_output_amps: write failed",
         ),
+    ]
+
+
+async def test_heartbeat_failure_does_not_duplicate_outage_log(
+    charging_client: tuple[BesenClient, _FakeBleakClient],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Background heartbeat failures do not duplicate the outage report."""
+
+    client, fake = charging_client
+    fake.fail_write = True
+    with caplog.at_level(logging.INFO, logger=__name__):
+        client._notification(1, bytearray(_evse_packet(3)))
+        pending = set(client._background_tasks)
+        assert pending
+        await asyncio.gather(*pending, return_exceptions=True)
+
+    assert not client._background_tasks
+    assert caplog.record_tuples == [
+        (
+            __name__,
+            logging.INFO,
+            "Besen ACP#Garage is unavailable: Failed to send heartbeat: write failed",
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("error", "level"),
+    [
+        (CommandFailed("Failed to send heartbeat"), logging.DEBUG),
+        (RuntimeError("unexpected failure"), logging.WARNING),
+    ],
+)
+async def test_packet_handler_failure_log_level(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    error: Exception,
+    level: int,
+) -> None:
+    """Expected transport failures are debug; unexpected errors stay visible."""
+
+    client = _client(_FakeBleakClient([]), monkeypatch)
+
+    async def _fail() -> None:
+        raise error
+
+    task = asyncio.create_task(_fail())
+    client._background_tasks.add(task)
+    with pytest.raises(type(error)):
+        await task
+    with caplog.at_level(logging.DEBUG, logger=__name__):
+        client._background_task_done(task)
+
+    assert not client._background_tasks
+    assert caplog.record_tuples == [
+        (__name__, level, f"Besen packet handler failed: {error}"),
     ]
