@@ -28,7 +28,8 @@ async def test_pin_rejection_is_published(client: BesenClient) -> None:
     states: list[BesenData] = []
     client.add_listener(states.append)
     client._login_request_sent = True
-    assert not client.state.auth_failed
+    initial_state = client.state
+    assert not initial_state.auth_failed
     await client._async_handle_packet(341, b"", "SERIAL")
     assert client.state.auth_failed
     assert not client.state.authenticated
