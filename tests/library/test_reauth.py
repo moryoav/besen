@@ -135,9 +135,11 @@ async def test_start_rejection_retains_typed_failure(client: BesenClient) -> Non
         client._login_request_sent = True
         await client._async_handle_packet(341, b"", "SERIAL")
 
-    with patch.object(client, "_connect_once", side_effect=reject_login):
-        with pytest.raises(InvalidAuth):
-            await client.async_start()
+    with (
+        patch.object(client, "_connect_once", side_effect=reject_login),
+        pytest.raises(InvalidAuth),
+    ):
+        await client.async_start()
     assert client.state.auth_failed
     assert not client.state.available
     assert not client.state.authenticated

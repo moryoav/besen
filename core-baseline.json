@@ -35,7 +35,7 @@
       "reason": "Record the restored and tested reauthentication flow; tier remains Bronze."
     },
     "strings.json": {
-      "sha256": "9c2deeba10a09f71e0e70ddeb7532b6d731f3a9362b2e52201d687ee351b6ad0",
+      "sha256": "a86ba3572a72a265be0e5a65f1c684da059c51d76d2865e421fdc8f16b813998",
       "reason": "Add the reauthentication form and success message."
     }
   }
