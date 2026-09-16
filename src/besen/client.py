@@ -541,9 +541,7 @@ class BesenClient:
 
         if client.is_connected:
             message = "Unable to release the existing Besen BLE connection"
-            self._logger.debug(
-                "%s: %s", message, disconnect_error or "still connected"
-            )
+            self._logger.debug("%s: %s", message, disconnect_error or "still connected")
             raise CannotConnect(message) from disconnect_error
 
     async def _cancel_background_tasks(self) -> None:
@@ -565,7 +563,11 @@ class BesenClient:
         if task.cancelled():
             return
         if err := task.exception():
-            self._logger.warning("Besen packet handler failed: %s", err)
+            self._logger.log(
+                logging.DEBUG if isinstance(err, CommandFailed) else logging.WARNING,
+                "Besen packet handler failed: %s",
+                err,
+            )
 
     def _select_characteristics(self) -> CharacteristicPair:
         """Select a usable known UUID pair and its supported GATT write mode."""
