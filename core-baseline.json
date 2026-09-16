@@ -20,5 +20,23 @@
     "strings.json": "0c905beb4b62c0766c2fcb3fa32e42ba2af4ea4109b2823f8b358d0f8c88a676",
     "switch.py": "72479bdd94d4983b0497c2482ec8118080f7747bd5bc5389e221cdfef8b8fc9d",
     "__init__.py": "a49d96b831ed934e5f249553a7ea566bd340a2d3ca2d59188be7d992ea356349"
+  },
+  "development_overrides": {
+    "config_flow.py": {
+      "sha256": "c0cefebc24d896d79696bf0b1bda47b74c1a3a5c00c56d321d5c5365b4323a8e",
+      "reason": "Restore PIN-only reauthentication, pending a Core follow-up PR."
+    },
+    "coordinator.py": {
+      "sha256": "51efb6cb6c6b2fb9b0f92b8fa0a8051d207f1d945517e7a043db0cc60c5e0903",
+      "reason": "Trigger runtime reauthentication from the explicit library auth_failed state."
+    },
+    "quality_scale.yaml": {
+      "sha256": "8116d79baafee5f8154cbf4f19ab741d88c23197debde41d30783b397793ac62",
+      "reason": "Record the restored and tested reauthentication flow; tier remains Bronze."
+    },
+    "strings.json": {
+      "sha256": "9c2deeba10a09f71e0e70ddeb7532b6d731f3a9362b2e52201d687ee351b6ad0",
+      "reason": "Add the reauthentication form and success message."
+    }
   }
 }
