@@ -580,24 +580,42 @@ def _client_with_connections(
     return client, established
 
 
-def test_unavailable_warning_is_rate_limited(
+@pytest.mark.parametrize(
+    ("available", "authenticated"),
+    [(False, True), (True, False), (False, False)],
+)
+def test_availability_logs_once_per_outage(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
+    available: bool,
+    authenticated: bool,
 ) -> None:
-    """Repeated unavailable warnings are throttled."""
+    """Only usable-state transitions log, including a second independent outage."""
 
     client = _client(_FakeBleakClient([]), monkeypatch)
-    times = iter([100.0, 200.0, 701.0])
-    with monkeypatch.context() as patcher:
-        patcher.setattr("besen.client.time.monotonic", lambda: next(times))
-        with caplog.at_level(logging.WARNING):
-            client._log_unavailable_warning("watchdog timeout")
-            client._log_unavailable_warning("watchdog timeout")
-            client._log_unavailable_warning("watchdog timeout")
+    with caplog.at_level(logging.INFO, logger=__name__):
+        client._set_state(available=True, authenticated=True)
+        assert not caplog.records
+        client._set_state(
+            available=available,
+            authenticated=authenticated,
+            last_error="Bluetooth connection lost",
+        )
+        for _ in range(3):
+            client._set_state(
+                available=False, authenticated=False, last_error="Retry failed"
+            )
+            client._set_state(available=True, authenticated=False, last_error=None)
+        client._set_state(available=True, authenticated=True, last_error=None)
+        client._set_state(available=True, authenticated=True)
+        client._set_state(available=False, authenticated=False, last_error=None)
+        client._set_state(available=True, authenticated=True)
 
-    assert [record.getMessage() for record in caplog.records] == [
-        "watchdog timeout",
-        "watchdog timeout",
+    assert caplog.record_tuples == [
+        (__name__, logging.INFO, "Besen ACP#Garage is unavailable: Bluetooth connection lost"),
+        (__name__, logging.INFO, "Besen ACP#Garage is available again"),
+        (__name__, logging.INFO, "Besen ACP#Garage is unavailable: Connection or authentication lost"),
+        (__name__, logging.INFO, "Besen ACP#Garage is available again"),
     ]
 
 
@@ -1513,3 +1531,248 @@ async def test_async_stop_reports_persistent_disconnect_failure(
 
     fake_bleak.fail_disconnect = False
     await client._disconnect_client()
+
+
+async def test_long_watchdog_outage_logs_once(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Watchdog cycles beyond ten minutes remain one outage, not periodic warnings."""
+
+    client = _client(_FakeBleakClient([]), monkeypatch)
+    client._set_state(available=True, authenticated=True)
+    client._last_message = 0
+    clock = [100.0]
+    attempts = 0
+
+    def _schedule_reconnect() -> None:
+        nonlocal attempts
+        attempts += 1
+        clock[0] += 700.0
+        if attempts == 3:
+            client._stopping = True
+
+    monkeypatch.setattr(client, "_schedule_reconnect", _schedule_reconnect)
+    monkeypatch.setattr(client_module, "MESSAGE_TIMEOUT", 0)
+    with (
+        monkeypatch.context() as clock_patch,
+        caplog.at_level(logging.INFO, logger=__name__),
+    ):
+        clock_patch.setattr("besen.client.time.monotonic", lambda: clock[0])
+        await client._watchdog_loop()
+        client._stopping = False
+        client._set_state(available=True, authenticated=False)
+        client._set_state(available=True, authenticated=True)
+
+    assert attempts == 3
+    assert caplog.record_tuples == [
+        (
+            __name__,
+            logging.INFO,
+            "Besen ACP#Garage is unavailable: No notifications received; reconnecting",
+        ),
+        (__name__, logging.INFO, "Besen ACP#Garage is available again"),
+    ]
+
+
+async def test_disconnect_recovery_waits_for_authentication(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A brief disconnect logs immediately; opening GATT alone is not recovery."""
+
+    first = _FakeBleakClient(_login_packets())
+    second = _FakeBleakClient([])
+    client, _ = _client_with_connections([first, second], monkeypatch)
+    monkeypatch.setattr(client, "_schedule_reconnect", lambda: None)
+    await client.async_start()
+    try:
+        with caplog.at_level(logging.INFO, logger=__name__):
+            first.is_connected = False
+            client._disconnected(cast(Any, first))
+            client._disconnected(cast(Any, first))
+            reconnect = asyncio.create_task(client._connect_and_login())
+            for _ in range(10):
+                await asyncio.sleep(0)
+                if second.notification_callback is not None:
+                    break
+            assert second.notification_callback is not None
+            assert client.state.available
+            assert not client.state.authenticated
+            assert len(caplog.records) == 1
+            for packet in _login_packets():
+                second.notification_callback(1, bytearray(packet))
+            await asyncio.wait_for(reconnect, 1)
+            assert client.state.authenticated
+    finally:
+        await client.async_stop()
+
+    assert caplog.record_tuples == [
+        (
+            __name__,
+            logging.INFO,
+            "Besen ACP#Garage is unavailable: Bluetooth connection lost",
+        ),
+        (__name__, logging.INFO, "Besen ACP#Garage is available again"),
+    ]
+
+
+async def test_silent_reconnect_retries_do_not_repeat_outage_logs(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Repeated silent logins retain debug diagnostics and one info-level pair."""
+
+    first = _FakeBleakClient(_login_packets())
+    silent = [_FakeBleakClient([]), _FakeBleakClient([])]
+    second = _FakeBleakClient(_login_packets())
+    client, established = _client_with_connections([first, *silent, second], monkeypatch)
+    monkeypatch.setattr(client, "_schedule_reconnect", lambda: None)
+    monkeypatch.setattr(client_module, "SILENT_LOGIN_TIMEOUT", 0.01)
+    monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
+    await client.async_start()
+    try:
+        with caplog.at_level(logging.INFO, logger=__name__):
+            first.is_connected = False
+            client._disconnected(cast(Any, first))
+            await client._reconnect_loop()
+        assert established == [first, *silent, second]
+        assert client.state.authenticated
+    finally:
+        await client.async_stop()
+
+    assert caplog.record_tuples == [
+        (
+            __name__,
+            logging.INFO,
+            "Besen ACP#Garage is unavailable: Bluetooth connection lost",
+        ),
+        (__name__, logging.INFO, "Besen ACP#Garage is available again"),
+    ]
+
+
+async def test_rejected_reconnect_does_not_log_recovery_or_repeat_outage(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Repeated PIN rejections do not imply recovery or repeat outage errors."""
+
+    first = _FakeBleakClient(_login_packets())
+    rejected = [
+        _FakeBleakClient([_evse_packet(1, _login_data()), _evse_packet(341)])
+        for _ in range(2)
+    ]
+    client, _ = _client_with_connections([first, *rejected], monkeypatch)
+    monkeypatch.setattr(client, "_schedule_reconnect", lambda: None)
+    monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
+    await client.async_start()
+    try:
+        with caplog.at_level(logging.INFO, logger=__name__):
+            first.is_connected = False
+            client._disconnected(cast(Any, first))
+            await client._reconnect_loop()
+            await client._reconnect_loop()
+        assert not client.state.authenticated
+        assert not client.state.available
+    finally:
+        await client.async_stop()
+
+    assert caplog.record_tuples == [
+        (
+            __name__,
+            logging.INFO,
+            "Besen ACP#Garage is unavailable: Bluetooth connection lost",
+        ),
+    ]
+    assert "123456" not in caplog.text
+
+
+@pytest.mark.parametrize("outage_before_stop", [False, True])
+async def test_stop_and_restart_do_not_log_spurious_transitions(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    outage_before_stop: bool,
+) -> None:
+    """Shutdown is not an outage and clears any previous outage before restart."""
+
+    first = _FakeBleakClient(_login_packets())
+    second = _FakeBleakClient(_login_packets())
+    client, _ = _client_with_connections([first, second], monkeypatch)
+    try:
+        with caplog.at_level(logging.INFO, logger=__name__):
+            await client.async_start()
+            if outage_before_stop:
+                client._set_state(
+                    available=False,
+                    authenticated=False,
+                    last_error="Bluetooth connection lost",
+                )
+            await client.async_stop()
+            await client.async_start()
+            await client.async_stop()
+    finally:
+        await client.async_stop()
+
+    expected = (
+        [
+            (
+                __name__,
+                logging.INFO,
+                "Besen ACP#Garage is unavailable: Bluetooth connection lost",
+            )
+        ]
+        if outage_before_stop
+        else []
+    )
+    assert caplog.record_tuples == expected
+
+
+@pytest.mark.parametrize("result", ["success", "invalid_auth", "no_path"])
+async def test_initial_setup_does_not_log_runtime_outage(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    result: str,
+) -> None:
+    """Initial connection success/failure is not a runtime outage/recovery pair."""
+
+    packets = (
+        [_evse_packet(1, _login_data()), _evse_packet(341)]
+        if result == "invalid_auth"
+        else _login_packets()
+    )
+    client = _client(_FakeBleakClient(packets), monkeypatch)
+    if result == "no_path":
+        monkeypatch.setattr(client, "_ble_device_provider", lambda: None)
+    try:
+        with caplog.at_level(logging.INFO, logger=__name__):
+            if result == "success":
+                await client.async_start()
+            else:
+                with pytest.raises(InvalidAuth if result == "invalid_auth" else CannotConnect):
+                    await client.async_start()
+            await client.async_stop()
+    finally:
+        await client.async_stop()
+    assert not caplog.records
+
+
+async def test_write_failures_log_one_outage(
+    charging_client: tuple[BesenClient, _FakeBleakClient],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Transport failures report one outage without changing command exceptions."""
+
+    client, fake = charging_client
+    fake.fail_write = True
+    with caplog.at_level(logging.INFO, logger=__name__):
+        for _ in range(2):
+            with pytest.raises(CommandFailed, match="Failed to send set_output_amps"):
+                await client.async_set_charge_amps(16)
+
+    assert caplog.record_tuples == [
+        (
+            __name__,
+            logging.INFO,
+            "Besen ACP#Garage is unavailable: Failed to send set_output_amps: write failed",
+        ),
+    ]
