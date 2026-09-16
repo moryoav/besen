@@ -6,6 +6,7 @@ import asyncio
 from collections import Counter
 from collections.abc import AsyncIterator, Callable
 import logging
+from types import SimpleNamespace
 from typing import Any, cast
 
 from besen import client as client_module
@@ -612,9 +613,17 @@ def test_availability_logs_once_per_outage(
         client._set_state(available=True, authenticated=True)
 
     assert caplog.record_tuples == [
-        (__name__, logging.INFO, "Besen ACP#Garage is unavailable: Bluetooth connection lost"),
+        (
+            __name__,
+            logging.INFO,
+            "Besen ACP#Garage is unavailable: Bluetooth connection lost",
+        ),
         (__name__, logging.INFO, "Besen ACP#Garage is available again"),
-        (__name__, logging.INFO, "Besen ACP#Garage is unavailable: Connection or authentication lost"),
+        (
+            __name__,
+            logging.INFO,
+            "Besen ACP#Garage is unavailable: Connection or authentication lost",
+        ),
         (__name__, logging.INFO, "Besen ACP#Garage is available again"),
     ]
 
@@ -661,6 +670,7 @@ async def test_client_public_commands_and_listeners(
     await client.async_start()
     await client.async_start_charging()
     await client.async_stop_charging()
+    await client.async_set_charge_amps(16)
     await client.async_set_lcd_brightness(150)
     await client.async_set_temperature_unit("Fahrenheit")
     await client.async_set_temperature_unit("Celcius")
@@ -1558,7 +1568,9 @@ async def test_long_watchdog_outage_logs_once(
         monkeypatch.context() as clock_patch,
         caplog.at_level(logging.INFO, logger=__name__),
     ):
-        clock_patch.setattr("besen.client.time.monotonic", lambda: clock[0])
+        clock_patch.setattr(
+            client_module, "time", SimpleNamespace(monotonic=lambda: clock[0])
+        )
         await client._watchdog_loop()
         client._stopping = False
         client._set_state(available=True, authenticated=False)
@@ -1626,7 +1638,9 @@ async def test_silent_reconnect_retries_do_not_repeat_outage_logs(
     first = _FakeBleakClient(_login_packets())
     silent = [_FakeBleakClient([]), _FakeBleakClient([])]
     second = _FakeBleakClient(_login_packets())
-    client, established = _client_with_connections([first, *silent, second], monkeypatch)
+    client, established = _client_with_connections(
+        [first, *silent, second], monkeypatch
+    )
     monkeypatch.setattr(client, "_schedule_reconnect", lambda: None)
     monkeypatch.setattr(client_module, "SILENT_LOGIN_TIMEOUT", 0.01)
     monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
@@ -1748,7 +1762,9 @@ async def test_initial_setup_does_not_log_runtime_outage(
             if result == "success":
                 await client.async_start()
             else:
-                with pytest.raises(InvalidAuth if result == "invalid_auth" else CannotConnect):
+                with pytest.raises(
+                    InvalidAuth if result == "invalid_auth" else CannotConnect
+                ):
                     await client.async_start()
             await client.async_stop()
     finally:
@@ -1773,6 +1789,7 @@ async def test_write_failures_log_one_outage(
         (
             __name__,
             logging.INFO,
-            "Besen ACP#Garage is unavailable: Failed to send set_output_amps: write failed",
+            "Besen ACP#Garage is unavailable: "
+            "Failed to send set_output_amps: write failed",
         ),
     ]
