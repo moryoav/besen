@@ -59,7 +59,6 @@ BLEDeviceProvider = Callable[[], BLEDevice | None]
 StateListener = Callable[[BesenData], None]
 
 USER_ID = [101, 118, 115, 101, 77, 81, 84, 84, 0, 0, 0, 0, 0, 0, 0, 0]
-UNAVAILABLE_LOG_INTERVAL_SECONDS = 600
 
 
 class BesenClient:
@@ -108,7 +107,7 @@ class BesenClient:
         self._reconnect_requested = False
         self._last_message = time.monotonic()
         self._last_clock_sync: float | None = None
-        self._last_unavailable_log: float | None = None
+        self._unavailable_logged = False
         self._state = BesenData(
             info=ChargerInfo(address=address, advertised_name=advertised_name)
         )
@@ -397,7 +396,7 @@ class BesenClient:
                         "The charger rejected the configured PIN"
                     )
                 except CannotConnect as err:
-                    self._logger.warning(
+                    self._logger.debug(
                         "Unable to release BLE connection after PIN rejection: %s",
                         err,
                     )
@@ -420,7 +419,7 @@ class BesenClient:
                 message = "Besen login did not complete"
             else:
                 message = "No Besen packets were received during login"
-            self._logger.warning(
+            self._logger.debug(
                 "%s; retrying a fresh Bluetooth connection in %s seconds "
                 "(attempt %s/%s)",
                 message,
@@ -483,7 +482,6 @@ class BesenClient:
             )
             self._update_info(board_revision=self._characteristics.board_revision)
             self._last_message = time.monotonic()
-            self._last_unavailable_log = None
             self._set_state(available=True, authenticated=False, last_error=None)
 
             def _handle_notification(sender: Any, data: bytearray) -> None:
@@ -543,7 +541,7 @@ class BesenClient:
 
         if client.is_connected:
             message = "Unable to release the existing Besen BLE connection"
-            self._logger.warning(
+            self._logger.debug(
                 "%s: %s", message, disconnect_error or "still connected"
             )
             raise CannotConnect(message) from disconnect_error
@@ -926,8 +924,25 @@ class BesenClient:
     def _set_state(self, **changes: Any) -> None:
         """Update state and notify listeners."""
 
+        was_available = self._state.available and self._state.authenticated
         self._state = self._state.updated(**changes)
-        if not self._state.available or not self._state.authenticated:
+        available = self._state.available and self._state.authenticated
+        # Initial setup and intentional shutdown are not runtime outages.
+        # A new BLE connection alone is not recovery: login must also succeed.
+        if self._stopping:
+            self._unavailable_logged = False
+        elif available:
+            if self._unavailable_logged:
+                self._logger.info("Besen %s is available again", self._name)
+                self._unavailable_logged = False
+        elif was_available and not self._unavailable_logged:
+            self._unavailable_logged = True
+            self._logger.info(
+                "Besen %s is unavailable: %s",
+                self._name,
+                self._state.last_error or "Connection or authentication lost",
+            )
+        if not available:
             self._end_charge_start()
         for listener in list(self._listeners):
             listener(self._state)
@@ -947,7 +962,7 @@ class BesenClient:
                 return
             if time.monotonic() - self._last_message <= MESSAGE_TIMEOUT:
                 continue
-            self._log_unavailable_warning(
+            self._logger.debug(
                 "No Besen notification received for %s seconds; reconnecting",
                 MESSAGE_TIMEOUT,
             )
@@ -980,7 +995,7 @@ class BesenClient:
             try:
                 await self._connect_and_login()
             except InvalidAuth:
-                self._logger.error("Besen PIN rejected during reconnect")
+                self._logger.debug("Besen PIN rejected during reconnect")
                 return
             except CannotConnect as err:
                 self._logger.debug("Besen reconnect failed: %s", err)
@@ -991,17 +1006,4 @@ class BesenClient:
                     or not self._state.authenticated
                 ):
                     continue
-                self._logger.info("Besen reconnected")
                 return
-
-    def _log_unavailable_warning(self, message: str, *args: object) -> None:
-        """Log unavailable warnings without repeating every watchdog cycle."""
-
-        now = time.monotonic()
-        if (
-            self._last_unavailable_log is not None
-            and now - self._last_unavailable_log < UNAVAILABLE_LOG_INTERVAL_SECONDS
-        ):
-            return
-        self._last_unavailable_log = now
-        self._logger.warning(message, *args)
