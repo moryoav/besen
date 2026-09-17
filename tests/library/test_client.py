@@ -1596,9 +1596,10 @@ async def test_disconnect_recovery_waits_for_authentication(
     second = _FakeBleakClient([])
     client, _ = _client_with_connections([first, second], monkeypatch)
     monkeypatch.setattr(client, "_schedule_reconnect", lambda: None)
-    await client.async_start()
-    try:
-        with caplog.at_level(logging.INFO, logger=__name__):
+    # Hold the level across start and stop: outside it the logger emits DEBUG.
+    with caplog.at_level(logging.INFO, logger=__name__):
+        await client.async_start()
+        try:
             first.is_connected = False
             client._disconnected(cast(Any, first))
             client._disconnected(cast(Any, first))
@@ -1616,8 +1617,8 @@ async def test_disconnect_recovery_waits_for_authentication(
                 second.notification_callback(1, bytearray(packet))
             await asyncio.wait_for(reconnect, 1)
             assert client.state.authenticated
-    finally:
-        await client.async_stop()
+        finally:
+            await client.async_stop()
 
     assert caplog.record_tuples == [
         (
@@ -1644,16 +1645,17 @@ async def test_silent_reconnect_retries_do_not_repeat_outage_logs(
     monkeypatch.setattr(client, "_schedule_reconnect", lambda: None)
     monkeypatch.setattr(client_module, "SILENT_LOGIN_TIMEOUT", 0.01)
     monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
-    await client.async_start()
-    try:
-        with caplog.at_level(logging.INFO, logger=__name__):
+    # Hold the level across start and stop: outside it the logger emits DEBUG.
+    with caplog.at_level(logging.INFO, logger=__name__):
+        await client.async_start()
+        try:
             first.is_connected = False
             client._disconnected(cast(Any, first))
             await client._reconnect_loop()
-        assert established == [first, *silent, second]
-        assert client.state.authenticated
-    finally:
-        await client.async_stop()
+            assert established == [first, *silent, second]
+            assert client.state.authenticated
+        finally:
+            await client.async_stop()
 
     assert caplog.record_tuples == [
         (
@@ -1679,17 +1681,18 @@ async def test_rejected_reconnect_does_not_log_recovery_or_repeat_outage(
     client, _ = _client_with_connections([first, *rejected], monkeypatch)
     monkeypatch.setattr(client, "_schedule_reconnect", lambda: None)
     monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
-    await client.async_start()
-    try:
-        with caplog.at_level(logging.INFO, logger=__name__):
+    # Hold the level across start and stop: outside it the logger emits DEBUG.
+    with caplog.at_level(logging.INFO, logger=__name__):
+        await client.async_start()
+        try:
             first.is_connected = False
             client._disconnected(cast(Any, first))
             await client._reconnect_loop()
             await client._reconnect_loop()
-        assert not client.state.authenticated
-        assert not client.state.available
-    finally:
-        await client.async_stop()
+            assert not client.state.authenticated
+            assert not client.state.available
+        finally:
+            await client.async_stop()
 
     assert caplog.record_tuples == [
         (
