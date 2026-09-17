@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.4.6] - 2026-09-17 (Python library)
+
+### Changed
+
+- Log one `INFO` message when a previously usable charger becomes unavailable, including the device name and reason, and one `INFO` message when it is available again. This replaces the warning repeated every ten minutes and addresses Home Assistant's `log-when-unavailable` quality rule.
+- Report recovery only after Bluetooth availability and authentication are both restored. Initial setup, intentional shutdown, and restart do not log outage or recovery messages.
+- Report a PIN rejected while reconnecting with one `WARNING` per outage instead of an error on every watchdog cycle. The charger stays unavailable until the PIN is corrected.
+- Move routine watchdog, login-retry, and connection-release details to `DEBUG`, and remove the duplicate reconnect success message. Unexpected packet-handling failures remain warnings.
+- Charging commands, response correlation, retry behavior, timing, and public APIs are unchanged.
+
+### Validation
+
+- Cover each availability and authentication loss combination, long watchdog outages, duplicate disconnect callbacks, silent reconnect retries, rejected PINs across two outages, shutdown during an outage, and initial setup failures.
+- Passed 196 tests and 66 snapshots with 96.39% combined coverage, plus Ruff, mypy, Core alignment, and package validation. No physical charger was operated for this logging-only change.
+
 ## [0.5.2] - 2026-09-14 (HACS integration)
 
 ### Fixed
