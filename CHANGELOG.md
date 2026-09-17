@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.5.3] - 2026-09-17 (HACS integration)
+
+### Changed
+
+- Bump the dependency to `besen==0.4.6`. Home Assistant now logs one message when the charger becomes unavailable, including the reason, and one when Bluetooth and authentication are both restored, instead of a warning every ten minutes.
+- Report a PIN rejected while reconnecting with one warning per outage. Routine reconnect details are available with debug logging.
+- Preserve the accepted Core integration baseline and existing entities, settings, charging commands, and automation behavior.
+
+### Validation
+
+- Passed 196 tests and 66 snapshots with 96.39% combined coverage, plus Ruff, mypy, Core alignment, and package validation.
+- Verified the published `besen` 0.4.6 package on PyPI. No physical charger was operated for this logging-only change.
+
 ## [0.4.6] - 2026-09-17 (Python library)
 
 ### Changed

@@ -20,7 +20,7 @@
   "issue_tracker": "https://github.com/moryoav/besen/issues",
   "quality_scale": "bronze",
   "requirements": [
-    "besen==0.4.5"
+    "besen==0.4.6"
   ],
-  "version": "0.5.2"
+  "version": "0.5.3"
 }
