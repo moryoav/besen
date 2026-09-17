@@ -1,8 +1,8 @@
 # Besen for Home Assistant
 
-I maintain this HACS distribution using the accepted Home Assistant Core Besen integration baseline. HACS **0.5.2** is based on [Core PR #180888](https://github.com/home-assistant/core/pull/180888) and requires **Home Assistant 2026.9.2 or later**. Home Assistant installs `besen==0.4.5` automatically with corrected charge-start reply matching for both single-phase and three-phase chargers.
+I maintain this HACS distribution using the accepted Home Assistant Core Besen integration baseline. HACS **0.5.3** is based on [Core PR #180888](https://github.com/home-assistant/core/pull/180888) and requires **Home Assistant 2026.9.2 or later**. Home Assistant installs `besen==0.4.6` automatically. It logs one message when the charger becomes unavailable and one when it recovers, and keeps the corrected charge-start reply matching for both single-phase and three-phase chargers.
 
-I verified the library fix with a physical three-phase stop/start and automated single-phase compatibility tests. [The Core dependency PR](https://github.com/home-assistant/core/pull/182194) tracks this update.
+I verified the charge-start fix with a physical three-phase stop/start and automated single-phase compatibility tests. [The Core dependency PR](https://github.com/home-assistant/core/pull/182194) tracks this update.
 
 The [alignment inventory](core-alignment.md) records the complete comparison and upgrade differences. Core changes can reach this repository before the next Home Assistant release.
 
@@ -28,13 +28,13 @@ A custom integration with domain `besen` takes precedence over the built-in inte
 
 For manual installation, copy `custom_components/besen` into the Home Assistant configuration directory and restart.
 
-## Upgrading from 0.5.0 or 0.5.1
+## Upgrading from 0.5.x
 
-Install **0.5.2** in HACS and restart Home Assistant. Existing entries and entities are retained. This release fixes the response-matching regression in 0.5.1. Existing single-phase and three-phase commands and Bluetooth write modes are preserved. Charging actions are not retried automatically.
+Install **0.5.3** in HACS and restart Home Assistant. Existing entries and entities are retained. This release replaces the repeated unavailable warning with one log message per outage and one on recovery, and includes the 0.5.2 fix for the response-matching regression in 0.5.1. Existing single-phase and three-phase commands and Bluetooth write modes are preserved. Charging actions are not retried automatically.
 
 ## Upgrading from 0.4.x
 
-Install **0.5.2** in HACS and restart Home Assistant. If the version is not listed, refresh the repository information and check the minimum Home Assistant version above.
+Install **0.5.3** in HACS and restart Home Assistant. If the version is not listed, refresh the repository information and check the minimum Home Assistant version above.
 
 Existing `besen` entries are retained. The upgrade supplies the name missing from older manual entries and migrates **Charge Amps** to Core's **Charging current** identifier while retaining its existing entity ID, custom name, device association, and history. Existing user choices about enabled entities are retained; Core defaults apply to newly created entities.
 
@@ -58,7 +58,7 @@ Status sensor states and temperature options now use Core's stable IDs. Update a
 
 Check the current state in **Developer tools** > **States** when updating other comparisons. Unknown protocol values now produce `unknown`, rather than an invented `unknown_0` or similar state.
 
-The withdrawn 0.4.3 release is not reused. HACS and Python library versions are independent: HACS 0.5.2 uses Python library 0.4.5.
+The withdrawn 0.4.3 release is not reused. HACS and Python library versions are independent: HACS 0.5.3 uses Python library 0.4.6.
 
 ### Older installations
 
@@ -122,7 +122,8 @@ Language, charger-name editing, LCD brightness, extra diagnostic sensors, Wi-Fi 
 1. Check the Bluetooth connection monitor and the proxy's free connection slots.
 2. Improve reception and reduce nearby Wi-Fi or USB interference.
 3. Prefer an Ethernet-connected proxy when practical.
-4. Enable debug logging for the integration, reproduce the issue, and attach the logs to a GitHub issue if it continues.
+4. Check the Home Assistant log. The integration logs one message with the reason when the charger becomes unavailable and one when it is available again. A warning that the charger rejected the configured PIN means the PIN changed; see below.
+5. Enable debug logging for the integration, reproduce the issue, and attach the logs to a GitHub issue if it continues.
 
 ### The PIN is rejected
 
