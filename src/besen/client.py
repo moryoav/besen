@@ -108,6 +108,7 @@ class BesenClient:
         self._last_message = time.monotonic()
         self._last_clock_sync: float | None = None
         self._unavailable_logged = False
+        self._auth_rejection_logged = False
         self._state = BesenData(
             info=ChargerInfo(address=address, advertised_name=advertised_name)
         )
@@ -933,7 +934,9 @@ class BesenClient:
         # A new BLE connection alone is not recovery: login must also succeed.
         if self._stopping:
             self._unavailable_logged = False
+            self._auth_rejection_logged = False
         elif available:
+            self._auth_rejection_logged = False
             if self._unavailable_logged:
                 self._logger.info("Besen %s is available again", self._name)
                 self._unavailable_logged = False
@@ -997,7 +1000,15 @@ class BesenClient:
             try:
                 await self._connect_and_login()
             except InvalidAuth:
-                self._logger.debug("Besen PIN rejected during reconnect")
+                # Retrying cannot fix this, so report it once per outage; the
+                # watchdog re-enters this loop and must not repeat the warning.
+                if not self._auth_rejection_logged:
+                    self._auth_rejection_logged = True
+                    self._logger.warning(
+                        "Besen %s rejected the configured PIN while reconnecting; "
+                        "it stays unavailable until the PIN is corrected",
+                        self._name,
+                    )
                 return
             except CannotConnect as err:
                 self._logger.debug("Besen reconnect failed: %s", err)

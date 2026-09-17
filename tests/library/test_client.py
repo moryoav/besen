@@ -169,9 +169,7 @@ async def test_charge_start_uses_reported_connector_id(
     )
     assert not request.done()
     if reported_line_id is not None:
-        await client._async_handle_packet(
-            7, bytes([3, 0, 1, 0, 16]), EVSE_IDENTIFIER
-        )
+        await client._async_handle_packet(7, bytes([3, 0, 1, 0, 16]), EVSE_IDENTIFIER)
         assert not request.done()
     await client._async_handle_packet(
         7, bytes([reply_line_id, 0, int(error == 0), error, 16]), EVSE_IDENTIFIER
@@ -1671,14 +1669,17 @@ async def test_rejected_reconnect_does_not_log_recovery_or_repeat_outage(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Repeated PIN rejections do not imply recovery or repeat outage errors."""
+    """Repeated PIN rejections warn once per outage and never imply recovery."""
 
     first = _FakeBleakClient(_login_packets())
     rejected = [
         _FakeBleakClient([_evse_packet(1, _login_data()), _evse_packet(341)])
-        for _ in range(2)
+        for _ in range(3)
     ]
-    client, _ = _client_with_connections([first, *rejected], monkeypatch)
+    recovered = _FakeBleakClient(_login_packets())
+    client, _ = _client_with_connections(
+        [first, *rejected[:2], recovered, rejected[2]], monkeypatch
+    )
     monkeypatch.setattr(client, "_schedule_reconnect", lambda: None)
     monkeypatch.setattr(client_module, "RECONNECT_DELAY", 0)
     # Hold the level across start and stop: outside it the logger emits DEBUG.
@@ -1689,17 +1690,37 @@ async def test_rejected_reconnect_does_not_log_recovery_or_repeat_outage(
             client._disconnected(cast(Any, first))
             await client._reconnect_loop()
             await client._reconnect_loop()
+            state_after_rejections = client.state
+            assert not state_after_rejections.authenticated
+            assert not state_after_rejections.available
+            assert len(caplog.records) == 2
+            await client._reconnect_loop()
+            state_after_recovery = client.state
+            assert state_after_recovery.authenticated
+            recovered.is_connected = False
+            client._disconnected(cast(Any, recovered))
+            await client._reconnect_loop()
             assert not client.state.authenticated
-            assert not client.state.available
         finally:
             await client.async_stop()
 
+    outage = (
+        __name__,
+        logging.INFO,
+        "Besen ACP#Garage is unavailable: Bluetooth connection lost",
+    )
+    rejection = (
+        __name__,
+        logging.WARNING,
+        "Besen ACP#Garage rejected the configured PIN while reconnecting; "
+        "it stays unavailable until the PIN is corrected",
+    )
     assert caplog.record_tuples == [
-        (
-            __name__,
-            logging.INFO,
-            "Besen ACP#Garage is unavailable: Bluetooth connection lost",
-        ),
+        outage,
+        rejection,
+        (__name__, logging.INFO, "Besen ACP#Garage is available again"),
+        outage,
+        rejection,
     ]
     assert "123456" not in caplog.text
 
