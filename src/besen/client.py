@@ -678,8 +678,12 @@ class BesenClient:
         """Handle a parsed charger packet."""
 
         async with self._packet_lock:
-            if self._stopping or self._auth_failed or (
-                generation is not None and generation != self._connection_generation
+            if (
+                self._stopping
+                or self._auth_failed
+                or (
+                    generation is not None and generation != self._connection_generation
+                )
             ):
                 return
             await self._async_handle_packet_locked(command, data, identifier)
