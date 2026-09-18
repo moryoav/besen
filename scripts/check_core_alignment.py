@@ -32,10 +32,18 @@ def canonical(
 
 
 def main() -> None:
-    """Fail if aligned integration source diverges from the accepted baseline."""
+    """Fail if source diverges from Core or a documented development override."""
     baseline = json.loads((ROOT / "core-baseline.json").read_text(encoding="utf-8"))
     integration = ROOT / "custom_components/besen"
+    overrides = baseline.get("development_overrides", {})
+    if set(overrides) - set(baseline["files"]):
+        raise SystemExit("Development override has no Core baseline")
     for name, expected in baseline["files"].items():
+        if name in overrides:
+            override = overrides[name]
+            if not override.get("reason"):
+                raise SystemExit(f"Undocumented development override in {name}")
+            expected = override["sha256"]
         text = canonical(
             name,
             (integration / name).read_text(encoding="utf-8"),
@@ -51,8 +59,8 @@ def main() -> None:
     if unexpected:
         raise SystemExit(f"Unexpected integration files: {sorted(unexpected)}")
     sys.stdout.write(
-        f"Integration matches Core {baseline['commit']} "
-        "with documented HACS adapters.\n"
+        f"Validated Core baseline {baseline['commit']} with documented HACS "
+        f"adapters and {len(overrides)} development overrides.\n"
     )
 
 

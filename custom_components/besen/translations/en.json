@@ -162,8 +162,23 @@
                     "disconnected": "Disconnected"
                 }
             },
+            "reservation_duration": {
+                "name": "Reservation duration"
+            },
+            "reservation_start": {
+                "name": "Reservation start"
+            },
+            "session_current_limit": {
+                "name": "Session current limit"
+            },
+            "session_duration": {
+                "name": "Session duration"
+            },
             "session_energy": {
                 "name": "Session energy"
+            },
+            "session_start": {
+                "name": "Session start"
             },
             "total_energy": {
                 "name": "Total energy"

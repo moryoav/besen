@@ -251,14 +251,26 @@ def test_parse_single_ac_charging_status(command: int) -> None:
 
     status = PARSERS[command](bytes(data), "12345678")
 
-    assert status == {"session_energy": 4.56}
+    assert status == {
+        "session_energy": 4.56,
+        "session_start": None,
+        "session_duration": 0,
+        "session_current_limit": None,
+        "reservation_start": None,
+        "reservation_duration": None,
+    }
 
 
 def test_parse_single_ac_charging_status_handles_zero_and_short_payload() -> None:
     """Charging status parser preserves zero and rejects incomplete payloads."""
 
     assert parse_single_ac_charging_status(bytes(74), "12345678") == {
-        "session_energy": 0.0
+        "session_energy": 0.0,
+        "session_start": None,
+        "session_duration": 0,
+        "session_current_limit": None,
+        "reservation_start": None,
+        "reservation_duration": None,
     }
     with pytest.raises(ProtocolError, match="shorter than 74"):
         parse_single_ac_charging_status(bytes(73), "12345678")

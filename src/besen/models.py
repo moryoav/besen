@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
@@ -96,6 +97,11 @@ class ChargeStatus:
     charging_status: str | None = None
     charging_status_description: str | None = None
     charger_status: bool | None = None
+    session_start: datetime | None = None
+    session_duration: int | None = None  # Seconds reported by the charger.
+    session_current_limit: int | None = None  # Amperes for this session.
+    reservation_start: datetime | None = None
+    reservation_duration: int | None = None  # Minutes; None means unset/unlimited.
 
     def updated(self, **changes: Any) -> ChargeStatus:
         """Return a copy with changed fields."""
