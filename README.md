@@ -1,252 +1,191 @@
-# besen
+# Besen for Home Assistant & Python
 
-[![release][release-badge]][release-url] [![CI][ci-badge]][ci-url] [![license][license-badge]][license-url]
+[![GitHub Release][release-badge]][release-url]
+[![PyPI][pypi-badge]][pypi-url]
+[![HACS][hacs-badge]][hacs-url]
+[![CI][ci-badge]][ci-url]
+[![License][license-badge]](#attribution-and-license)
 
-`besen` is an async Python client for Besen EV chargers over Bluetooth Low Energy.
-It provides the BLE connection management, login flow, protocol parsing, typed state
-models, and charger control commands needed by applications such as Home Assistant
-integrations.
+---
 
-## Home Assistant users
+## ❤️ Help support this project
 
-I maintain a HACS distribution of the Home Assistant Core Besen integration in
-this repository, alongside the Python communication library. Install **Besen**
-through HACS using
-[`moryoav/besen`](https://my.home-assistant.io/redirect/hacs_repository/?owner=moryoav&repository=besen&category=integration),
-then follow the [installation and upgrade guide](https://github.com/moryoav/besen/blob/main/docs/home-assistant-custom-integration.md).
+<p>
+  <a href="https://ko-fi.com/Y5B124NZ2L"><img src="https://storage.ko-fi.com/cdn/kofi3.png?v=6" alt="Support me on Ko-fi" height="36"></a>
+  &nbsp;
+  <a href="https://github.com/sponsors/moryoav"><img src="https://img.shields.io/badge/Sponsor_on_GitHub-EA4AAA?style=for-the-badge&amp;logo=githubsponsors&amp;logoColor=white" alt="Sponsor on GitHub" height="36"></a>
+</p>
 
-HACS version **0.5.3** uses the accepted Core integration baseline, including
-[the charger display temperature unit select](https://github.com/home-assistant/core/pull/180888).
-It requires **Home Assistant 2026.9.2 or later** and installs `besen==0.4.6`
-automatically. This update logs one message when the charger becomes unavailable and
-one when it recovers, and keeps the charge-start response matching fix for
-single-phase and three-phase chargers.
+Support ongoing development and maintenance by donating on Ko-fi or sponsoring the project on GitHub. Bug reports, compatibility feedback, and contributions are welcome too.
 
-I keep `main` aligned with accepted Core changes. Stable HACS releases can include
-changes already merged into Core before they appear in a Home Assistant release.
+---
 
-I verified the charge-start fix with a physical three-phase stop/start and automated single-phase
-compatibility tests. [The Core dependency PR](https://github.com/home-assistant/core/pull/182194)
-tracks the library update. HACS 0.5.0 retains its original `besen==0.4.2` dependency.
-The [alignment inventory](https://github.com/moryoav/besen/blob/main/docs/core-alignment.md)
-records the exact baseline and necessary packaging and upgrade differences.
+Control and monitor Besen EV chargers locally over Bluetooth Low Energy, without a cloud service.
 
-**Upgrading from 0.4.x:** language, device-name editing, LCD brightness, extra
-sensors, and custom configuration/diagnostics flows are removed to match Core.
-Status and temperature-option values now use Core's lowercase IDs. Review the
-[upgrade notes](https://github.com/moryoav/besen/blob/main/docs/home-assistant-custom-integration.md#upgrading-from-04x)
-for automation changes. HACS and Python library versions are now independent.
+This repository contains both the **Besen Home Assistant integration**, installable through HACS, and the **`besen` Python package** that handles communication with the charger. The Python package also powers the built-in Besen integration in Home Assistant Core.
 
-The library has been verified with a Besen BS20 charger. Other Besen chargers that
-advertise as `ACP#...` and use the same BLE protocol may also work.
+## Which version should I use?
+
+| Installation | Best for | How updates arrive |
+| --- | --- | --- |
+| **Built-in Home Assistant integration** | Users who prefer stability and the normal Home Assistant release cycle. | Included in Home Assistant; updated with Home Assistant Core. No HACS required. |
+| **HACS custom integration** | Users who want new features and fixes sooner. | Releases from this repository, installed and updated through HACS. |
+
+New features and fixes are developed here first, then submitted to Home Assistant Core. HACS releases can make them available before they complete Core review and reach a Home Assistant release. The two versions do not necessarily have the same features at the same time.
+
+**For most users, start with the built-in integration.** Choose HACS for earlier access to changes and be prepared to report issues. Python developers can go straight to [Python package](#python-package).
+
+## Supported chargers and prerequisites
+
+The project has been verified with the **Besen BS20** and supports single-phase and three-phase charger data. Other Besen chargers advertising as `ACP#...` and using the same Bluetooth protocol may also work.
+
+Before setup, have:
+
+- The charger's **6-digit Bluetooth PIN**.
+- A supported Bluetooth adapter or an **ESPHome Bluetooth proxy with active connections enabled**, within range of the charger.
+- A free Bluetooth connection to the charger. Disconnect any phone app, MQTT bridge, or other client already connected to it. Each charger uses one active connection slot.
 
 ## Installation
+
+### Option 1: Built-in Home Assistant integration
+
+**Recommended for stability.** Besen is included in Home Assistant starting with **2026.9**. Use an up-to-date Home Assistant release; you do not need HACS or a manual package installation.
+
+[![Add Besen to Home Assistant][ha-install-badge]][ha-install-url]
+
+1. Click the button above, or open **Settings** > **Devices & services** > **Add integration** and search for **Besen**.
+2. Follow the setup flow and enter the charger's Bluetooth PIN. You can also configure a charger from its discovery card.
+3. Install future updates through the normal Home Assistant update process.
+
+See the [official Besen documentation](https://www.home-assistant.io/integrations/besen/) for the functionality available in the built-in version.
+
+### Option 2: HACS custom integration
+
+**For earlier access to new features and fixes.** The current HACS release requires **Home Assistant 2026.9.2 or newer**. Check [release notes][release-url] for the requirements of the version you install.
+
+Install and configure [HACS](https://www.hacs.xyz/docs/use/) first, then add this repository:
+
+[![Open Besen in HACS][hacs-install-badge]][hacs-url]
+
+1. Click the button above and add/open **Besen** in HACS. Alternatively, open **HACS** > **⋮** > **Custom repositories**, add `https://github.com/moryoav/besen`, and select type **Integration**.
+2. Find **Besen** in HACS and download the latest release.
+3. **Restart Home Assistant.**
+4. For a new setup, click the button below or open **Settings** > **Devices & services** > **Add integration** > **Besen**. Select the discovered charger and enter its PIN.
+
+[![Add Besen to Home Assistant][ha-install-badge]][ha-install-url]
+
+**Already using the built-in Besen integration?** Keep your existing entry. After installing through HACS and restarting, the custom integration takes precedence. Do not add a second entry for the same charger.
+
+Home Assistant installs the required Python package automatically. **Do not run `pip install` in Home Assistant.** HACS integration versions and Python package versions are independent and are not expected to match.
+
+<details>
+<summary>Manual installation instead of HACS</summary>
+
+Download a release from [GitHub Releases][release-url], and copy its `custom_components/besen` directory into your Home Assistant configuration directory as `/config/custom_components/besen`. The file `/config/custom_components/besen/manifest.json` must exist. Restart Home Assistant, then complete setup as above. Update this copy manually when installing a newer release.
+
+</details>
+
+## Features
+
+The following describes the **integration in this repository**. The built-in version depends on your Home Assistant release and may not yet expose all of these entities.
+
+| Control | Purpose |
+| --- | --- |
+| **Charge** switch | Start or stop charging. |
+| **Charging current** number | Set the current limit from 6 A to the charger's reported maximum, with a 32 A fallback when no maximum is reported. |
+| **Temperature unit** select | Choose Celsius or Fahrenheit on the charger's screen. This does not change Home Assistant's temperature units. |
+
+| Sensors | Availability on a new installation |
+| --- | --- |
+| Charging power, total energy, session energy | Enabled by default. |
+| Internal temperature, charging status, charging message | Enabled by default. |
+| External temperature, error state, plug state, output state, current state | Diagnostic entities; disabled by default. |
+| L1 voltage and current; L2/L3 voltage and current on three-phase chargers | Diagnostic entities; disabled by default. |
+
+Enable optional entities from the charger's device page. Use **Total energy** for cumulative consumption in the Energy dashboard; **Session energy** can reset between charging sessions.
+
+Use standard Home Assistant actions such as `switch.turn_on`, `switch.turn_off`, `number.set_value`, and `select.select_option` in automations. Temperature-select action values are `celsius` and `fahrenheit`.
+
+Updates arrive through local Bluetooth notifications. The integration keeps a connection open and reconnects when needed. Entities become `unavailable` while disconnected or unauthenticated; missing or unsupported readings appear as `unknown`.
+
+Wi-Fi provisioning, PIN/device resets, charging-history downloads, firmware updates, and safety-certified load balancing are not provided by this integration.
+
+## Updates and switching versions
+
+**Built-in:** update Home Assistant. **HACS:** install the update in HACS, then restart Home Assistant. Read the [release notes][release-url] and [changelog](https://github.com/moryoav/besen/blob/main/CHANGELOG.md) before upgrading.
+
+**Returning from HACS to the built-in version:** make a backup and check that your installed Home Assistant release supports the features you need. Remove the downloaded Besen custom integration through HACS, or remove `/config/custom_components/besen` for a manual installation, then restart Home Assistant. Keep the existing Besen entry in **Devices & services**; deleting it is not part of switching versions. Features not yet included in that Core release will no longer be available, so check affected dashboards and automations.
+
+<details>
+<summary>Upgrading older installations: HACS 0.4.x and the legacy besen_bs20 domain</summary>
+
+The 0.5.x transition aligned the custom integration with the Core baseline. Existing `besen` entries are retained, and **Charge Amps** is migrated to **Charging current** while preserving its entity ID, custom name, device association, and history. Existing choices about enabled entities are retained.
+
+That transition removed language selection, charger-name editing, LCD brightness, RSSI/system-time/software-version sensors, the sync-clock option, and the old custom reauthentication, reconfiguration, diagnostics, and repair flows. Firmware remains visible in device information, and default clock synchronization applies. Remove references to retired entities from dashboards and automations before deleting their unused registry entries.
+
+States and temperature options changed to lowercase IDs. For example, `Start` became `start`, `Connected Locked` became `connected_locked`, `Charging` became `charging`, and `Celsius`/`Fahrenheit` became `celsius`/`fahrenheit`. Check **Developer tools** > **States** before updating comparisons. Unrecognized protocol values now appear as `unknown`.
+
+The legacy `besen_bs20` domain from 0.2.x has no automatic migration. Disable the old entry before setting up **Besen**, update entity references, and remove the old entry after verifying the new one.
+
+</details>
+
+## Troubleshooting
+
+### Charger not discovered or no connectable Bluetooth path
+
+Check **Settings** > **Connectivity** > **Bluetooth** > **Advertisement monitor** for an `ACP#...` device. Confirm that your proxy is connected to Home Assistant and supports active connections. Move it closer to the charger and disconnect other apps or bridges holding the charger's connection.
+
+### Entities become unavailable
+
+Check Bluetooth's **Connection monitor**, signal quality, and the proxy's available active-connection slots. Review the Home Assistant log for connection or authentication errors. For a persistent problem, enable debug logging for Besen, reproduce the issue, and review the logs before sharing them.
+
+### PIN rejected
+
+Use the current 6-digit charger PIN. If it changed after setup and your installed version does not offer reauthentication, remove and add the integration with the new PIN. Record any entity references first so you can check your automations afterward.
+
+### HACS installation does not appear
+
+Confirm that Home Assistant meets the release's minimum version, that `/config/custom_components/besen/manifest.json` exists, and that you restarted Home Assistant. Check the log for dependency or import errors.
+
+## Python package
+
+The reusable async Python client lives in `src/besen` and is published on [PyPI][pypi-url]. It provides BLE connection management, PIN authentication, typed state updates, and charger commands for applications outside Home Assistant as well.
+
+For a standalone Python application, use **Python 3.12 or newer**:
 
 ```bash
 pip install besen
 ```
 
-Python 3.12 or newer is required.
+Read the [Python library guide and API reference](https://github.com/moryoav/besen/blob/main/docs/python-library.md) for a working example, lifecycle and control methods, state fields, exceptions, and Bluetooth connection notes. Library capabilities are not a promise that an equivalent Home Assistant entity exists.
 
-## Basic Usage
+## Feedback and contributions
 
-Applications provide the BLE device lookup function. This keeps discovery policy
-outside the library, so callers can use `bleak`, Home Assistant Bluetooth helpers,
-or another BLE stack integration.
+For HACS or Python package bugs, feature requests, and charger compatibility reports, [open an issue](https://github.com/moryoav/besen/issues/new/choose). Include your charger model, Home Assistant version where applicable, whether you use Core or HACS, and relevant release versions. Do not include PINs or other private information in reports or logs.
 
-```python
-import asyncio
-import logging
+For a problem with the built-in integration, use the issue-reporting link in the [official Besen documentation](https://www.home-assistant.io/integrations/besen/).
 
-from bleak import BleakScanner
-
-from besen import BesenClient, BesenData
-
-ADDRESS = "AA:BB:CC:DD:EE:FF"
-PIN = "123456"
-
-
-async def main() -> None:
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger("besen")
-
-    device = await BleakScanner.find_device_by_address(ADDRESS, timeout=10.0)
-    if device is None:
-        raise RuntimeError("Charger was not found")
-
-    def device_provider():
-        return device
-
-    client = BesenClient(
-        address=ADDRESS,
-        pin=PIN,
-        ble_device_provider=device_provider,
-        logger=logger,
-    )
-
-    def handle_update(data: BesenData) -> None:
-        print(
-            "available=",
-            data.available,
-            "charging=",
-            data.charge.charger_status,
-            "power_w=",
-            data.charge.power,
-            "session_kwh=",
-            data.charge.session_energy,
-        )
-
-    remove_listener = client.add_listener(handle_update)
-
-    try:
-        await client.async_start()
-        await client.async_start_charging(amps=8)
-        await asyncio.sleep(5)
-        await client.async_stop_charging()
-    finally:
-        remove_listener()
-        await client.async_stop()
-
-
-asyncio.run(main())
-```
-
-## Client API
-
-Create one `BesenClient` per charger:
-
-```python
-client = BesenClient(
-    address="AA:BB:CC:DD:EE:FF",
-    pin="123456",
-    ble_device_provider=device_provider,
-    logger=logger,
-    advertised_name="ACP#Garage",
-    sync_clock=True,
-)
-```
-
-The BLE device provider is called before connection attempts and reconnects. It
-must return a connectable `bleak.backends.device.BLEDevice` or `None` when no
-connectable path is available.
-
-Lifecycle methods:
-
-- `await client.async_start()` connects, subscribes to notifications, and completes
-  the charger login flow.
-- `await client.async_stop()` cancels background tasks and disconnects.
-- `client.add_listener(callback)` registers a synchronous state callback and
-  returns a function that removes it.
-- `client.state` returns the latest `BesenData` snapshot.
-- `client.is_connected` reports whether the underlying BLE connection is open.
-
-Control methods:
-
-- `await client.async_start_charging(amps=None)`
-- `await client.async_stop_charging()`
-- `await client.async_set_charge_amps(amps)`
-- `await client.async_refresh_charge_amps()`
-- `await client.async_set_lcd_brightness(brightness)`
-- `await client.async_set_temperature_unit(unit)`
-- `await client.async_set_language(language)`
-- `await client.async_set_device_name(name)`
-- `await client.async_refresh_config()`
-
-## State Model
-
-State updates are immutable dataclasses. Every listener receives a full `BesenData`
-snapshot.
-
-Important fields:
-
-- `BesenData.available`: whether the latest BLE state is usable.
-- `BesenData.authenticated`: whether the PIN login flow completed.
-- `BesenData.info`: charger metadata such as serial, model, phases, firmware, and
-  board revision.
-- `BesenData.config`: configuration values such as charge amps, device name,
-  language, temperature unit, LCD brightness, and RSSI.
-- `BesenData.charge`: live charging state such as voltage, current, energy,
-  temperature, plug state, output state, and charger status.
-- `BesenData.last_command`: last parsed command response.
-- `BesenData.last_error`: last connection, protocol, or command error string.
-
-Important telemetry fields:
-
-- `BesenData.charge.power`: charger-reported charging power in watts.
-- `BesenData.charge.total_energy`: lifetime energy counter in kWh.
-- `BesenData.charge.session_energy`: energy delivered during the current or most
-  recently completed charging session in kWh.
-- `BesenData.charge.inner_temp_c` and `BesenData.charge.outer_temp`: temperatures
-  in Celsius, or `None` when the charger reports an invalid value.
-- `BesenData.charge.l1_voltage`, `l2_voltage`, and `l3_voltage`: phase voltages in
-  volts. L2 and L3 are populated only when the charger sends three-phase data.
-- `BesenData.charge.l1_amperage`, `l2_amperage`, and `l3_amperage`: phase currents
-  in amperes. L2 and L3 are populated only when the charger sends three-phase data.
-
-## Exceptions
-
-All library-specific errors inherit from `BesenError`.
-
-- `CannotConnect`: the charger could not be reached or login timed out.
-- `NoConnectablePath`: no active BLE path is available.
-- `InvalidAuth`: the charger rejected the configured PIN.
-- `ProtocolError`: malformed charger data was received.
-- `CommandFailed`: a charger command could not be sent, was invalid, or a
-  start-charging request was rejected or could not be confirmed.
-
-`async_start_charging()` waits up to 10 seconds for the charger response, including
-the Bluetooth write. A response with a charging or reservation error raises
-`CommandFailed`. A successful response confirms the request, while actual charging
-state continues to arrive through notifications.
-
-If the response times out, the charging outcome is unknown. The client disconnects
-and reconnects without automatically sending another start request. Cancellation
-after sending also retires that Bluetooth session so a late reply cannot be
-mistaken for the next request's response. Connection cleanup can extend the time
-before the method exits. Concurrent start requests wait their turn before the
-10-second timeout begins. Other command methods retain their existing behavior.
-
-## Bluetooth Notes
-
-Besen chargers normally allow only one active BLE client connection. Stop other
-tools or apps that may already be connected to the charger before starting this
-client.
-
-The client keeps one active BLE connection open, listens for notifications, replies
-to heartbeats, and schedules reconnects when notifications stop. The caller remains
-responsible for device discovery, adapter/proxy selection, and deciding when to
-start or stop the client.
-
-## Home Assistant
-
-This package is the reusable Python communication library used by the Besen Home
-Assistant integration. Home Assistant user-facing setup and troubleshooting notes
-are kept separately in
-[docs/home-assistant-custom-integration.md](https://github.com/moryoav/besen/blob/main/docs/home-assistant-custom-integration.md).
+Developers can refer to [CONTRIBUTING.md](https://github.com/moryoav/besen/blob/main/CONTRIBUTING.md) and the [Core alignment inventory](https://github.com/moryoav/besen/blob/main/docs/core-alignment.md).
 
 ## Safety
 
-EV charging equipment controls real electrical hardware. This library is not a
-safety controller. Keep charger hardware, breaker sizing, wiring, and local
-electrical code protections correct independently of any software using this
-package. Use conservative defaults and manual supervision when automating charging.
+This software controls real electrical equipment and is not a safety controller. Keep the charger's hardware protections, wiring, and current limits appropriate for the installation. Test charging controls manually before relying on automations.
 
-## Attribution
+## Attribution and license
 
-The Bluetooth protocol implementation is based on the MIT-licensed work in
-[slespersen/evseMQTT](https://github.com/slespersen/evseMQTT), with MQTT-specific
-runtime behavior replaced by a reusable async Python client.
+The Python communication library is licensed under [MIT](https://github.com/moryoav/besen/blob/main/LICENSE), with protocol work based on [slespersen/evseMQTT](https://github.com/slespersen/evseMQTT).
 
-Additional attribution details are maintained in
-[NOTICE.md](https://github.com/moryoav/besen/blob/main/NOTICE.md).
-
-## License
-
-MIT. See [LICENSE](https://github.com/moryoav/besen/blob/main/LICENSE).
+The Core-derived Home Assistant integration and tests are licensed under [Apache 2.0](https://github.com/moryoav/besen/blob/main/custom_components/besen/LICENSE). See [NOTICE.md](https://github.com/moryoav/besen/blob/main/NOTICE.md) for attribution details.
 
 [release-badge]: https://img.shields.io/github/v/release/moryoav/besen?style=flat-square
 [release-url]: https://github.com/moryoav/besen/releases
+[pypi-badge]: https://img.shields.io/pypi/v/besen?style=flat-square&label=PyPI
+[pypi-url]: https://pypi.org/project/besen/
+[hacs-badge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square
+[hacs-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=moryoav&repository=besen&category=integration
+[hacs-install-badge]: https://my.home-assistant.io/badges/hacs_repository.svg
+[ha-install-badge]: https://my.home-assistant.io/badges/config_flow_start.svg
+[ha-install-url]: https://my.home-assistant.io/redirect/config_flow/?domain=besen
 [ci-badge]: https://img.shields.io/github/actions/workflow/status/moryoav/besen/ci.yml?branch=main&style=flat-square&label=CI
 [ci-url]: https://github.com/moryoav/besen/actions/workflows/ci.yml
-[license-badge]: https://img.shields.io/github/license/moryoav/besen?style=flat-square
-[license-url]: https://github.com/moryoav/besen/blob/main/LICENSE
+[license-badge]: https://img.shields.io/badge/License-MIT%20%2F%20Apache--2.0-blue.svg?style=flat-square
