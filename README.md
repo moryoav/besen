@@ -126,7 +126,9 @@ Check Bluetooth's **Connection monitor**, signal quality, and the proxy's availa
 
 ### PIN rejected
 
-Use the current 6-digit charger PIN. If it changed after setup and your installed version does not offer reauthentication, remove and add the integration with the new PIN. Record any entity references first so you can check your automations afterward.
+Use the current 6-digit charger PIN. If the charger rejects the saved PIN, versions with reauthentication show a prompt for Besen under **Settings** > **Devices & services**. Enter the current PIN there; Home Assistant validates it with the charger and reloads the existing entry, keeping its entities and history. An invalid PIN keeps the form open, and a connection error leaves the saved PIN unchanged so you can retry. Automatic reconnect attempts pause after a rejection, and normal Bluetooth outages never ask for a PIN.
+
+If your installed version does not offer reauthentication, remove and add the integration with the new PIN. Record any entity references first so you can check your automations afterward.
 
 ### HACS installation does not appear
 
