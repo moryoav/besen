@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.5.4] - 2026-09-18 (HACS integration)
+
+### Added
+
+- Restore PIN reauthentication. When the charger rejects the saved PIN during setup or reconnection, Home Assistant opens a reauthentication prompt for the existing entry. The new PIN is validated with the same charger before the entry is updated and reloaded, keeping its entities, history, names, and options. An invalid PIN keeps the form open, and a connection error leaves the saved PIN unchanged.
+
+### Changed
+
+- Bump the dependency to `besen==0.4.7` for its typed PIN rejection state. Automatic reconnect attempts pause after a rejected PIN, and Bluetooth outages or incomplete logins never ask for a PIN.
+- Mark the `reauthentication-flow` and `action-exceptions` quality scale rules done. The manifest tier remains Bronze until Core accepts Silver.
+- Keep the accepted Core checksums and record the four changed integration files as explained development overrides until a Core PR adopts them. Existing entities, settings, charging commands, and automation behavior are unchanged.
+
+### Validation
+
+- Passed 227 tests and 66 snapshots with 96.92% combined coverage, plus Ruff, mypy, Core alignment, and package validation.
+- Passed the 93 integration tests and 66 snapshots against the published `besen` 0.4.7 package from PyPI. No physical charger was operated for this change.
+
 ## [0.4.7] - 2026-09-18 (Python library)
 
 ### Added
