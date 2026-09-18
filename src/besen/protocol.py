@@ -400,9 +400,32 @@ def parse_single_ac_charging_status(data: bytes, _identifier: str) -> dict[str, 
 
     if len(data) < 74:
         raise ProtocolError("Charging status payload is shorter than 74 bytes")
+    # Session layout is shared by the live (0x0005) and completed (0x0006)
+    # reports. These offsets also match evsemaster's parse_charging_status.
+    duration = bytes_to_integer(data[51:55])
+    current_limit = byte_to_integer(data[46])
+    reservation_duration = bytes_to_integer(data[20:22])
     return {
         "session_energy": round(bytes_to_integer(data[63:67]) * 0.01, 2),
+        "session_start": _parse_session_timestamp(data[47:51]),
+        "session_duration": None if duration == 0xFFFFFFFF else duration,
+        "session_current_limit": (
+            None if current_limit in {0, 0xFF} else current_limit
+        ),
+        "reservation_start": _parse_session_timestamp(data[26:30]),
+        "reservation_duration": (
+            None if reservation_duration in {0, 0xFFFF} else reservation_duration
+        ),
     }
+
+
+def _parse_session_timestamp(data: bytes) -> datetime | None:
+    """Decode an optional timestamp using the existing charger clock convention."""
+
+    epoch = bytes_to_integer(data)
+    if epoch in {0, 0xFFFFFFFF}:
+        return None
+    return datetime.fromisoformat(bytes_to_timestamp(epoch))
 
 
 def parse_output_amps(data: bytes, _identifier: str) -> dict[str, Any]:

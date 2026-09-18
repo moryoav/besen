@@ -1,6 +1,6 @@
 """Tests for the Besen sensor platform."""
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from besen.const import (
     CHARGING_STATUS,
@@ -34,6 +34,7 @@ from custom_components.besen.sensor import (
     ERROR_STATES,
     OUTPUT_STATES,
     PLUG_STATES,
+    SENSOR_DESCRIPTIONS,
 )
 
 from . import publish_besen_state
@@ -54,10 +55,23 @@ async def test_sensor_state(
     mock_besen_client: Mock,
     phases: int,
 ) -> None:
-    """Test sensor states and registry data."""
+    """Keep the accepted Core sensor states and registry snapshots unchanged."""
 
+    # New entities have explicit state/registry coverage in test_session_sensors.
+    # Preserve the upstream Core snapshots for every pre-existing sensor.
+    session_keys = {
+        "session_start",
+        "session_duration",
+        "session_current_limit",
+        "reservation_start",
+        "reservation_duration",
+    }
     mock_besen_client.state = charger_state(phases=phases)
-    await setup_integration(hass, mock_config_entry, [Platform.SENSOR])
+    with patch(
+        "custom_components.besen.sensor.SENSOR_DESCRIPTIONS",
+        tuple(item for item in SENSOR_DESCRIPTIONS if item.key not in session_keys),
+    ):
+        await setup_integration(hass, mock_config_entry, [Platform.SENSOR])
 
     await snapshot_platform(hass, entity_registry, snapshot, mock_config_entry.entry_id)
     mock_besen_client.async_start.assert_awaited_once()
