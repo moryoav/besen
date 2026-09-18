@@ -4,7 +4,7 @@
   "pull_request": 180888,
   "dependency_override": {
     "baseline": "besen==0.4.2",
-    "development": "besen==0.4.6"
+    "development": "besen==0.4.7"
   },
   "files": {
     "config_flow.py": "9b4f21961b20cfe322ecaad56b3142420a8f5075c894e78c5d03b9e737d8f4d6",
@@ -20,5 +20,23 @@
     "strings.json": "0c905beb4b62c0766c2fcb3fa32e42ba2af4ea4109b2823f8b358d0f8c88a676",
     "switch.py": "72479bdd94d4983b0497c2482ec8118080f7747bd5bc5389e221cdfef8b8fc9d",
     "__init__.py": "a49d96b831ed934e5f249553a7ea566bd340a2d3ca2d59188be7d992ea356349"
+  },
+  "development_overrides": {
+    "config_flow.py": {
+      "sha256": "c0cefebc24d896d79696bf0b1bda47b74c1a3a5c00c56d321d5c5365b4323a8e",
+      "reason": "Restore PIN-only reauthentication, pending a Core follow-up PR."
+    },
+    "coordinator.py": {
+      "sha256": "51efb6cb6c6b2fb9b0f92b8fa0a8051d207f1d945517e7a043db0cc60c5e0903",
+      "reason": "Trigger runtime reauthentication from the explicit library auth_failed state."
+    },
+    "quality_scale.yaml": {
+      "sha256": "6d521b4c74bbf218a115a894e8efc786608c3616bdd05d7589b88b992c6da949",
+      "reason": "Record the reauthentication flow and the existing, tested command error handling as done; the manifest tier remains Bronze until Core accepts Silver."
+    },
+    "strings.json": {
+      "sha256": "a86ba3572a72a265be0e5a65f1c684da059c51d76d2865e421fdc8f16b813998",
+      "reason": "Add the reauthentication form and success message."
+    }
   }
 }

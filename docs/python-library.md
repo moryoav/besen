@@ -143,6 +143,9 @@ Important fields:
 
 - `BesenData.available`: whether the latest BLE state is usable.
 - `BesenData.authenticated`: whether the PIN login flow completed.
+- `BesenData.auth_failed`: whether the charger explicitly rejected the PIN. Automatic
+  reconnects stop until a new login is started; a Bluetooth outage or incomplete
+  login does not set it.
 - `BesenData.info`: charger metadata such as serial, model, phases, firmware, and
   board revision.
 - `BesenData.config`: configuration values such as charge amps, device name,

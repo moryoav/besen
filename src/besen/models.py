@@ -122,6 +122,8 @@ class BesenData:
     authenticated: bool = False
     last_command: CommandResult | None = None
     last_error: str | None = None
+    # Explicit PIN rejection, distinct from an incomplete login or BLE outage.
+    auth_failed: bool = False
 
     def updated(self, **changes: Any) -> BesenData:
         """Return a copy with changed fields."""
