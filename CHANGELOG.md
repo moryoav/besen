@@ -4,16 +4,21 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
-## [0.4.7] - Unreleased (Python library)
+## [0.4.7] - 2026-09-18 (Python library)
 
 ### Added
 
 - Add the typed `BesenData.auth_failed` state for an explicit PIN rejection. A Bluetooth outage, an incomplete login, or error-message text cannot be mistaken for rejected credentials.
+
+### Changed
+
 - Stop watchdog and reconnect retries after the charger rejects the PIN, and ignore queued packets from the rejected login. A new login attempt clears the failure state.
+- Charging commands, response correlation, outage logging, and the existing public API are unchanged.
 
 ### Validation
 
 - Cover explicit and unsolicited rejections, rejected-login packet ordering, watchdog and reconnect suppression, recovery with a replacement PIN, and startup rejection.
+- Passed 227 tests and 66 snapshots with 96.92% combined coverage, plus Ruff, mypy, Core alignment, and package validation. No physical charger was operated for this change.
 
 ## [0.5.3] - 2026-09-17 (HACS integration)
 
