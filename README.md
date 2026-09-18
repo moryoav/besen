@@ -76,8 +76,6 @@ Install and configure [HACS](https://www.hacs.xyz/docs/use/) first, then add thi
 
 **Already using the built-in Besen integration?** Keep your existing entry. After installing through HACS and restarting, the custom integration takes precedence. Do not add a second entry for the same charger.
 
-Home Assistant installs the required Python package automatically. **Do not run `pip install` in Home Assistant.** HACS integration versions and Python package versions are independent and are not expected to match.
-
 <details>
 <summary>Manual installation instead of HACS</summary>
 
@@ -115,19 +113,6 @@ Wi-Fi provisioning, PIN/device resets, charging-history downloads, firmware upda
 **Built-in:** update Home Assistant. **HACS:** install the update in HACS, then restart Home Assistant. Read the [release notes][release-url] and [changelog](https://github.com/moryoav/besen/blob/main/CHANGELOG.md) before upgrading.
 
 **Returning from HACS to the built-in version:** make a backup and check that your installed Home Assistant release supports the features you need. Remove the downloaded Besen custom integration through HACS, or remove `/config/custom_components/besen` for a manual installation, then restart Home Assistant. Keep the existing Besen entry in **Devices & services**; deleting it is not part of switching versions. Features not yet included in that Core release will no longer be available, so check affected dashboards and automations.
-
-<details>
-<summary>Upgrading older installations: HACS 0.4.x and the legacy besen_bs20 domain</summary>
-
-The 0.5.x transition aligned the custom integration with the Core baseline. Existing `besen` entries are retained, and **Charge Amps** is migrated to **Charging current** while preserving its entity ID, custom name, device association, and history. Existing choices about enabled entities are retained.
-
-That transition removed language selection, charger-name editing, LCD brightness, RSSI/system-time/software-version sensors, the sync-clock option, and the old custom reauthentication, reconfiguration, diagnostics, and repair flows. Firmware remains visible in device information, and default clock synchronization applies. Remove references to retired entities from dashboards and automations before deleting their unused registry entries.
-
-States and temperature options changed to lowercase IDs. For example, `Start` became `start`, `Connected Locked` became `connected_locked`, `Charging` became `charging`, and `Celsius`/`Fahrenheit` became `celsius`/`fahrenheit`. Check **Developer tools** > **States** before updating comparisons. Unrecognized protocol values now appear as `unknown`.
-
-The legacy `besen_bs20` domain from 0.2.x has no automatic migration. Disable the old entry before setting up **Besen**, update entity references, and remove the old entry after verifying the new one.
-
-</details>
 
 ## Troubleshooting
 
