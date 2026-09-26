@@ -48,7 +48,9 @@ async def test_diagnostics(
     await setup_integration(hass, mock_config_entry)
     client_calls = list(mock_besen_client.mock_calls)
 
-    result = await get_diagnostics_for_config_entry(hass, hass_client, mock_config_entry)
+    result = await get_diagnostics_for_config_entry(
+        hass, hass_client, mock_config_entry
+    )
 
     assert result["entry_data"] == {
         CONF_ADDRESS: REDACTED,
@@ -162,7 +164,9 @@ async def test_diagnostics_missing_readings(
     mock_besen_client.state = BesenData(info=ChargerInfo(address=FIXTURE_ADDRESS))
     await setup_integration(hass, mock_config_entry, [])
 
-    result = await get_diagnostics_for_config_entry(hass, hass_client, mock_config_entry)
+    result = await get_diagnostics_for_config_entry(
+        hass, hass_client, mock_config_entry
+    )
 
     assert result["data"]["info"]["address"] == REDACTED
     assert result["data"]["info"]["model"] is None

@@ -69,7 +69,8 @@ def main() -> None:
         raise SystemExit(f"Unexpected integration files: {sorted(unexpected)}")
     sys.stdout.write(
         f"Verified Core {baseline['commit']} baseline with documented HACS adapters, "
-        f"{len(overrides)} pending development overrides and {len(additions)} additions.\n"
+        f"{len(overrides)} pending development overrides "
+        f"and {len(additions)} added files.\n"
     )
 
 
