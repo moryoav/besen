@@ -116,6 +116,16 @@ Wi-Fi provisioning, PIN/device resets, charging-history downloads, firmware upda
 
 ## Troubleshooting
 
+### Download diagnostics
+
+**Available on the development branch; not yet in a tagged HACS release.**
+
+Open **Settings** > **Devices & services** > **Besen**, open the menu for your charger entry, and select **Download diagnostics**.
+
+The download contains charger model and firmware details, settings, readings, and connection/authentication status. The PIN, Bluetooth address, serial number, and charger names are redacted. Raw command replies and free-text error messages are excluded because they can contain private information.
+
+Diagnostics use cached data and do not send commands, reconnect, or interrupt charging. If setup never completed, only the redacted configuration is returned. Review the downloaded file before attaching it to an issue.
+
 ### Charger not discovered or no connectable Bluetooth path
 
 Check **Settings** > **Connectivity** > **Bluetooth** > **Advertisement monitor** for an `ACP#...` device. Confirm that your proxy is connected to Home Assistant and supports active connections. Move it closer to the charger and disconnect other apps or bridges holding the charger's connection.

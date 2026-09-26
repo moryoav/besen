@@ -36,8 +36,11 @@ def main() -> None:
     baseline = json.loads((ROOT / "core-baseline.json").read_text(encoding="utf-8"))
     integration = ROOT / "custom_components/besen"
     overrides = baseline.get("development_overrides", {})
+    additions = baseline.get("development_additions", {})
     if unknown := overrides.keys() - baseline["files"].keys():
         raise SystemExit(f"Unknown development overrides: {sorted(unknown)}")
+    if overlap := additions.keys() & baseline["files"].keys():
+        raise SystemExit(f"Development additions already in Core: {sorted(overlap)}")
     for name, expected in baseline["files"].items():
         if override := overrides.get(name):
             if not override.get("reason"):
@@ -51,15 +54,22 @@ def main() -> None:
         actual = hashlib.sha256(text.encode()).hexdigest()
         if actual != expected:
             raise SystemExit(f"Unexpected Core divergence in {name}")
-    allowed = {*baseline["files"], "migration.py", "py.typed", "LICENSE"}
+    for name, addition in additions.items():
+        if not addition.get("reason"):
+            raise SystemExit(f"Missing development addition reason for {name}")
+        text = canonical(name, (integration / name).read_text(encoding="utf-8"))
+        actual = hashlib.sha256(text.encode()).hexdigest()
+        if actual != addition["sha256"]:
+            raise SystemExit(f"Unexpected development addition content in {name}")
+    allowed = {*baseline["files"], *additions, "migration.py", "py.typed", "LICENSE"}
     unexpected = {
         path.name for path in integration.iterdir() if path.is_file()
     } - allowed
     if unexpected:
         raise SystemExit(f"Unexpected integration files: {sorted(unexpected)}")
     sys.stdout.write(
-        f"Verified Core {baseline['commit']} baseline with documented HACS adapters "
-        f"and {len(overrides)} pending development overrides.\n"
+        f"Verified Core {baseline['commit']} baseline with documented HACS adapters, "
+        f"{len(overrides)} pending development overrides and {len(additions)} additions.\n"
     )
 
 

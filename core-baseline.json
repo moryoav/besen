@@ -35,12 +35,18 @@
       "reason": "Mark the custom integration as Silver. The Core promotion will follow home-assistant/core#183123."
     },
     "quality_scale.yaml": {
-      "sha256": "6d521b4c74bbf218a115a894e8efc786608c3616bdd05d7589b88b992c6da949",
-      "reason": "Record the reauthentication flow and the existing, tested command error handling as done."
+      "sha256": "e13a08c8d85700fffca0c5234362c610d98a713f9a47b3ea861a50023703186c",
+      "reason": "Record reauthentication, command error handling and diagnostics as done."
     },
     "strings.json": {
       "sha256": "a86ba3572a72a265be0e5a65f1c684da059c51d76d2865e421fdc8f16b813998",
       "reason": "Add the reauthentication form and success message."
+    }
+  },
+  "development_additions": {
+    "diagnostics.py": {
+      "sha256": "4cda75b2c174e4823a9e024b654eb725c2f97c80ad4c450c2fc143833bb1adfb",
+      "reason": "Add redacted charger diagnostics ahead of a separate Core PR."
     }
   }
 }
