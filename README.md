@@ -136,7 +136,7 @@ Check Bluetooth's **Connection monitor**, signal quality, and the proxy's availa
 
 ### Update the saved PIN
 
-**Available on the development branch; not yet in a tagged HACS release.**
+**Available in HACS releases starting with v0.5.7.**
 
 Open **Settings** > **Devices & services** > **Besen**, open the menu for your charger entry, and select **Reconfigure**. Enter the current 6-digit PIN used by the charger.
 
@@ -144,7 +144,7 @@ This updates the PIN saved in Home Assistant, not the PIN on the charger. The ex
 
 ### PIN rejected
 
-Use the current 6-digit charger PIN. If Home Assistant asks you to reauthenticate, enter it in that prompt. On versions that offer **Reconfigure**, you can also update the saved PIN from the charger entry menu. Both flows keep the existing entry, so there is no need to delete and re-add the integration.
+Use the current 6-digit charger PIN. If Home Assistant asks you to reauthenticate, enter it in that prompt. Starting with v0.5.7, you can also update the saved PIN with **Reconfigure** in the charger entry menu. Both flows keep the existing entry, so there is no need to delete and re-add the integration.
 
 ### HACS installation does not appear
 
