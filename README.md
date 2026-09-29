@@ -118,7 +118,7 @@ Wi-Fi provisioning, PIN/device resets, charging-history downloads, firmware upda
 
 ### Download diagnostics
 
-**Available on the development branch; not yet in a tagged HACS release.**
+**Available in HACS releases starting with v0.5.5.**
 
 Open **Settings** > **Devices & services** > **Besen**, open the menu for your charger entry, and select **Download diagnostics**.
 

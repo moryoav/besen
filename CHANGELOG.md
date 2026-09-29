@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.5.5] - 2026-09-29 (HACS integration)
+
+### Added
+
+- Add **Download diagnostics** to help troubleshoot charger issues. The download includes charger details, settings, readings, and connection/authentication status.
+- Redact the PIN, Bluetooth address, serial number, and charger names. Raw command replies and free-text errors are excluded.
+- Read cached data only, without sending commands or interrupting charging. If setup has not completed, return the redacted configuration.
+
+### Changed
+
+- Mark the integration as Silver and the diagnostics quality rule as done.
+- Keep the Python library at `besen==0.4.7`. Charging controls and Bluetooth connection behavior are unchanged.
+
+### Updating
+
+Install the update through HACS and restart Home Assistant. Keep the existing Besen entry. Open **Settings** > **Devices & services** > **Besen**, then open the charger entry menu and select **Download diagnostics**.
+
+### Testing
+
+Automated tests cover the download, redaction, connection and authentication states, missing readings, and preservation of cached data. Testing on a physical charger is still pending.
+
 ## [0.5.4] - 2026-09-18 (HACS integration)
 
 ### Added
