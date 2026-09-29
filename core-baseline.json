@@ -23,7 +23,7 @@
   },
   "development_overrides": {
     "config_flow.py": {
-      "sha256": "703157349743040e89911fd19f2a0b7168ad7fbcc7a0650ca64fa64055e8e66c",
+      "sha256": "14c68be00c737f4d1a6defadcb8b320cfc9a44ae419e2269414ba3e8293161d4",
       "reason": "Restore PIN-only reauthentication and user-initiated reconfiguration."
     },
     "coordinator.py": {
@@ -39,7 +39,7 @@
       "reason": "Record reauthentication, command error handling, diagnostics and reconfiguration as done."
     },
     "strings.json": {
-      "sha256": "1f0fbb70246cd45be251c3e4551a1463133b29eb000d6f09d557c9537babc7a6",
+      "sha256": "8429e07e26b9bb285a931f321af34bcc16ff0ae3ac23a58224fd8c57d79ab17f",
       "reason": "Add the reauthentication and reconfiguration forms and result messages."
     }
   },

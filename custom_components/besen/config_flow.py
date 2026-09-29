@@ -1,6 +1,5 @@
 """Config flow for Besen."""
 
-from asyncio import CancelledError
 from collections.abc import Mapping
 import logging
 from typing import TYPE_CHECKING, Any, override
@@ -47,6 +46,8 @@ PIN_ONLY_SCHEMA = probatio.Schema(
         probatio.Required(CONF_PIN, default=DEFAULT_PIN): PIN_SCHEMA,
     }
 )
+
+REAUTH_SCHEMA = probatio.Schema({probatio.Required(CONF_PIN): PIN_SCHEMA})
 
 
 def _user_schema(
@@ -290,60 +291,49 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=probatio.Schema({probatio.Required(CONF_PIN): PIN_SCHEMA}),
+            data_schema=REAUTH_SCHEMA,
             errors=errors,
         )
 
     async def async_step_reconfigure(
-        self, user_input: dict[str, Any] | None = None
+        self,
+        user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Update the saved PIN for the existing charger."""
+        """Update the PIN of a configured charger."""
 
-        entry = self._get_reconfigure_entry()
         errors: dict[str, str] = {}
         if user_input is not None:
+            entry = self._get_reconfigure_entry()
             pin = user_input[CONF_PIN]
-            if len(pin) != 6 or not (pin.isascii() and pin.isdecimal()):
+            # The charger accepts a single connection, so release it first.
+            if not await self.hass.config_entries.async_unload(entry.entry_id):
+                return self.async_abort(reason="reconfigure_unload_failed")
+            try:
+                await _async_validate_input(
+                    self.hass,
+                    address=entry.data[CONF_ADDRESS],
+                    pin=pin,
+                    name=entry.data[CONF_NAME],
+                )
+            except InvalidAuth:
                 errors["base"] = "invalid_auth"
+            except NoConnectablePath:
+                errors["base"] = "no_connectable_path"
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected Besen reconfiguration error")
+                errors["base"] = "unknown"
             else:
-                # Release the existing BLE connection before testing the PIN.
-                if entry.state is config_entries.ConfigEntryState.LOADED:
-                    if not await self.hass.config_entries.async_unload(entry.entry_id):
-                        return self.async_abort(reason="reconfigure_unload_failed")
-                else:
-                    entry.async_cancel_retry_setup()
-
-                try:
-                    await _async_validate_input(
-                        self.hass,
-                        address=entry.data[CONF_ADDRESS],
-                        pin=pin,
-                        name=entry.data.get(CONF_NAME),
-                    )
-                except InvalidAuth:
-                    errors["base"] = "invalid_auth"
-                except NoConnectablePath:
-                    errors["base"] = "no_connectable_path"
-                except CannotConnect:
-                    errors["base"] = "cannot_connect"
-                except Exception:
-                    _LOGGER.exception("Unexpected Besen reconfiguration error")
-                    errors["base"] = "unknown"
-                except CancelledError:
-                    await self.hass.config_entries.async_setup(entry.entry_id)
-                    raise
-                else:
-                    return self.async_update_reload_and_abort(
-                        entry,
-                        data_updates={CONF_PIN: pin},
-                        reload_even_if_entry_is_unchanged=True,
-                    )
-
-                # Keep the old configuration working while the user retries.
-                await self.hass.config_entries.async_setup(entry.entry_id)
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data_updates={CONF_PIN: pin},
+                )
+            # Reconnect with the saved PIN while the user tries again.
+            await self.hass.config_entries.async_setup(entry.entry_id)
 
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=probatio.Schema({probatio.Required(CONF_PIN): PIN_SCHEMA}),
+            data_schema=REAUTH_SCHEMA,
             errors=errors,
         )
