@@ -224,7 +224,18 @@ async def test_reconfigure_errors_can_recover(
     assert probe.async_stop.await_count == 2
 
 
-@pytest.mark.parametrize("pin", ["12345", "1234567", "abcdef", "¹²³⁴⁵⁶", ""])
+@pytest.mark.parametrize(
+    "pin",
+    [
+        "12345",
+        "1234567",
+        "abcdef",
+        "¹²³⁴⁵⁶",
+        pytest.param("٠١٢٣٤٥", id="arabic-indic-digits"),
+        pytest.param("\uff10\uff11\uff12\uff13\uff14\uff15", id="fullwidth-digits"),
+        "",
+    ],
+)
 async def test_reconfigure_invalid_pin(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,

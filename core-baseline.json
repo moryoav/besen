@@ -23,7 +23,7 @@
   },
   "development_overrides": {
     "config_flow.py": {
-      "sha256": "00c7088cc650c42b6e1cba6007099fcf19fa326daa00a019ef3519782a364efe",
+      "sha256": "703157349743040e89911fd19f2a0b7168ad7fbcc7a0650ca64fa64055e8e66c",
       "reason": "Restore PIN-only reauthentication and user-initiated reconfiguration."
     },
     "coordinator.py": {

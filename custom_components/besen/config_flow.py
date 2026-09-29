@@ -76,7 +76,7 @@ async def _async_validate_input(
 ) -> str:
     """Validate setup by logging into the charger."""
 
-    if len(pin) != 6 or not pin.isdecimal():
+    if len(pin) != 6 or not (pin.isascii() and pin.isdecimal()):
         raise InvalidAuth("PIN must be exactly 6 digits")
 
     def _ble_device_provider() -> BLEDevice | None:
@@ -303,7 +303,7 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             pin = user_input[CONF_PIN]
-            if len(pin) != 6 or not pin.isdecimal():
+            if len(pin) != 6 or not (pin.isascii() and pin.isdecimal()):
                 errors["base"] = "invalid_auth"
             else:
                 # Release the existing BLE connection before testing the PIN.
