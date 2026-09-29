@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.5.6] - 2026-09-29 (HACS integration)
+
+### Changed
+
+- Use named constants for the serial number and device name redaction keys in diagnostics.
+- Snapshot the complete diagnostics download in tests while retaining explicit checks for private data, cached-state preservation, and no charger commands.
+
+### Validation
+
+- Passed 239 tests and 67 snapshots with 96.95% combined coverage, plus Ruff, mypy, Core alignment, and package validation. Physical Home Assistant testing is pending.
+
 ## [0.5.5] - 2026-09-29 (HACS integration)
 
 ### Added

@@ -45,7 +45,7 @@
   },
   "development_additions": {
     "diagnostics.py": {
-      "sha256": "4cda75b2c174e4823a9e024b654eb725c2f97c80ad4c450c2fc143833bb1adfb",
+      "sha256": "bcacc9a8d73b78b60dc6aaad563ba0956863127da201376a4763da0f0a701a4e",
       "reason": "Add redacted charger diagnostics ahead of a separate Core PR."
     }
   }
