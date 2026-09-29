@@ -245,7 +245,15 @@ async def test_user_step_success(
     _assert_create_entry(result)
 
 
-@pytest.mark.parametrize("invalid_pin", ["12345", "¹²³⁴⁵⁶"])
+@pytest.mark.parametrize(
+    "invalid_pin",
+    [
+        "12345",
+        "¹²³⁴⁵⁶",
+        pytest.param("٠١٢٣٤٥", id="arabic-indic-digits"),
+        pytest.param("\uff10\uff11\uff12\uff13\uff14\uff15", id="fullwidth-digits"),
+    ],
+)
 @pytest.mark.usefixtures("mock_setup_entry")
 async def test_user_step_rejects_invalid_pin(
     hass: HomeAssistant,

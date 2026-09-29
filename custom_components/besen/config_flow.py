@@ -47,6 +47,8 @@ PIN_ONLY_SCHEMA = probatio.Schema(
     }
 )
 
+REAUTH_SCHEMA = probatio.Schema({probatio.Required(CONF_PIN): PIN_SCHEMA})
+
 
 def _user_schema(
     discoveries: dict[str, BluetoothServiceInfoBleak],
@@ -75,7 +77,7 @@ async def _async_validate_input(
 ) -> str:
     """Validate setup by logging into the charger."""
 
-    if len(pin) != 6 or not pin.isdecimal():
+    if len(pin) != 6 or not (pin.isascii() and pin.isdecimal()):
         raise InvalidAuth("PIN must be exactly 6 digits")
 
     def _ble_device_provider() -> BLEDevice | None:
@@ -289,6 +291,49 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=probatio.Schema({probatio.Required(CONF_PIN): PIN_SCHEMA}),
+            data_schema=REAUTH_SCHEMA,
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Update the PIN of a configured charger."""
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            entry = self._get_reconfigure_entry()
+            pin = user_input[CONF_PIN]
+            # The charger accepts a single connection, so release it first.
+            if not await self.hass.config_entries.async_unload(entry.entry_id):
+                return self.async_abort(reason="reconfigure_unload_failed")
+            try:
+                await _async_validate_input(
+                    self.hass,
+                    address=entry.data[CONF_ADDRESS],
+                    pin=pin,
+                    name=entry.data[CONF_NAME],
+                )
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except NoConnectablePath:
+                errors["base"] = "no_connectable_path"
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected Besen reconfiguration error")
+                errors["base"] = "unknown"
+            else:
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data_updates={CONF_PIN: pin},
+                )
+            # Reconnect with the saved PIN while the user tries again.
+            await self.hass.config_entries.async_setup(entry.entry_id)
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=REAUTH_SCHEMA,
             errors=errors,
         )

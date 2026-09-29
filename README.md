@@ -134,9 +134,17 @@ Check **Settings** > **Connectivity** > **Bluetooth** > **Advertisement monitor*
 
 Check Bluetooth's **Connection monitor**, signal quality, and the proxy's available active-connection slots. Review the Home Assistant log for connection or authentication errors. For a persistent problem, enable debug logging for Besen, reproduce the issue, and review the logs before sharing them.
 
+### Update the saved PIN
+
+**Available in HACS releases starting with v0.5.7.**
+
+Open **Settings** > **Devices & services** > **Besen**, open the menu for your charger entry, and select **Reconfigure**. Enter the current 6-digit PIN used by the charger.
+
+This updates the PIN saved in Home Assistant, not the PIN on the charger. The existing entry, devices, entities, and other settings are kept. Opening the form does not disconnect the charger. Submitting it briefly closes the Bluetooth connection to validate the PIN; no start or stop charging command is sent. A rejected PIN is not saved, and the integration attempts to reconnect using the previous configuration.
+
 ### PIN rejected
 
-Use the current 6-digit charger PIN. If it changed after setup and your installed version does not offer reauthentication, remove and add the integration with the new PIN. Record any entity references first so you can check your automations afterward.
+Use the current 6-digit charger PIN. If Home Assistant asks you to reauthenticate, enter it in that prompt. Starting with v0.5.7, you can also update the saved PIN with **Reconfigure** in the charger entry menu. Both flows keep the existing entry, so there is no need to delete and re-add the integration.
 
 ### HACS installation does not appear
 

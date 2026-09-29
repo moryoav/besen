@@ -73,9 +73,7 @@ rules:
   entity-translations: done
   exception-translations: done
   icon-translations: done
-  reconfiguration-flow:
-    status: todo
-    comment: Split into a follow-up PR after the initial integration lands.
+  reconfiguration-flow: done
   repair-issues:
     status: todo
     comment: Split into a follow-up PR after the initial integration lands.
