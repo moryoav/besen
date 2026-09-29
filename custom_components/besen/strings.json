@@ -4,7 +4,9 @@
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
       "no_devices_found": "[%key:common::config_flow::abort::no_devices_found%]",
       "not_supported": "This Bluetooth device is not a supported Besen charger.",
-      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]",
+      "reconfigure_successful": "[%key:common::config_flow::abort::reconfigure_successful%]",
+      "reconfigure_unload_failed": "Could not close the existing charger connection. Reload the integration and try again."
     },
     "error": {
       "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
@@ -33,6 +35,16 @@
         },
         "description": "The charger rejected its saved Bluetooth PIN. Enter the current 6-digit PIN.",
         "title": "Reauthenticate Besen"
+      },
+      "reconfigure": {
+        "data": {
+          "pin": "[%key:common::config_flow::data::pin%]"
+        },
+        "data_description": {
+          "pin": "The 6-digit Bluetooth PIN currently configured on the charger."
+        },
+        "description": "Enter the current Bluetooth PIN for this charger. This updates the PIN saved in Home Assistant; it does not change the PIN on the charger. The Bluetooth connection will briefly close while the PIN is checked.",
+        "title": "Reconfigure Besen"
       },
       "user": {
         "data": {

@@ -23,8 +23,8 @@
   },
   "development_overrides": {
     "config_flow.py": {
-      "sha256": "c0cefebc24d896d79696bf0b1bda47b74c1a3a5c00c56d321d5c5365b4323a8e",
-      "reason": "Restore PIN-only reauthentication, pending a Core follow-up PR."
+      "sha256": "00c7088cc650c42b6e1cba6007099fcf19fa326daa00a019ef3519782a364efe",
+      "reason": "Restore PIN-only reauthentication and user-initiated reconfiguration."
     },
     "coordinator.py": {
       "sha256": "51efb6cb6c6b2fb9b0f92b8fa0a8051d207f1d945517e7a043db0cc60c5e0903",
@@ -35,12 +35,12 @@
       "reason": "Mark the custom integration as Silver. The Core promotion will follow home-assistant/core#183123."
     },
     "quality_scale.yaml": {
-      "sha256": "e13a08c8d85700fffca0c5234362c610d98a713f9a47b3ea861a50023703186c",
-      "reason": "Record reauthentication, command error handling and diagnostics as done."
+      "sha256": "d69d97d3973536ddf65413c41bb62baf18efad93c760fa4aac1ab63f353077f1",
+      "reason": "Record reauthentication, command error handling, diagnostics and reconfiguration as done."
     },
     "strings.json": {
-      "sha256": "a86ba3572a72a265be0e5a65f1c684da059c51d76d2865e421fdc8f16b813998",
-      "reason": "Add the reauthentication form and success message."
+      "sha256": "1f0fbb70246cd45be251c3e4551a1463133b29eb000d6f09d557c9537babc7a6",
+      "reason": "Add the reauthentication and reconfiguration forms and result messages."
     }
   },
   "development_additions": {
