@@ -61,7 +61,8 @@ any scheduled start with the vendor app on a real charger.
 
 ## Development notes
 
-Library 0.4.8 provides these fields, and the custom integration requires it.
+HACS 0.5.9 adds these sensors. Library 0.4.8 provides the fields, and the
+custom integration requires it.
 For development and tests, install this checkout with `pip install -e ".[dev]"`.
 
 The pinned Home Assistant Core baseline does not contain these sensors yet.

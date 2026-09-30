@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.5.9] - 2026-09-30 (HACS integration)
+
+### Added
+
+- Add **Session start** and **Session duration** sensors for the current or most recently completed charging session, enabled by default.
+- Add **Session current limit**, **Scheduled start**, and **Charging time limit** sensors, disabled by default. Enable them from the charger's device page. Sessions started from Home Assistant are immediate and set no time limit, so their Scheduled start is the time of the start request and Charging time limit stays unknown; both are set when a start is scheduled or limited elsewhere, such as in the vendor app.
+
+### Changed
+
+- Bump the dependency to `besen==0.4.8` for the session fields. Diagnostics downloads include the new session values. Existing entities, settings, and charging behavior are unchanged.
+- Match Core's Platinum quality tier and its `repair-issues` exemption in the manifest and quality scale checklist.
+- Keep the accepted Core checksums and record `sensor.py` and the extended `strings.json` as development overrides until a Core PR adopts the session sensors.
+
+### Updating
+
+Install the update through HACS and restart Home Assistant, which installs `besen` 0.4.8. Keep the existing Besen entry; the new sensors appear on the charger's device page.
+
+### Validation
+
+- Passed 276 tests and 92 snapshots with 96.98% combined coverage, plus Ruff, mypy, Core alignment, hassfest, and package validation.
+- Passed the 104 integration tests and 92 snapshots against the published `besen` 0.4.8 package from PyPI. No physical charger was operated for this change.
+
 ## [0.4.8] - 2026-09-30 (Python library)
 
 ### Added
