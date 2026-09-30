@@ -1,6 +1,7 @@
 """Tests for the Besen sensor platform."""
 
-from unittest.mock import Mock, patch
+from datetime import UTC, datetime
+from unittest.mock import Mock
 
 from besen.const import (
     CHARGING_STATUS,
@@ -34,7 +35,6 @@ from custom_components.besen.sensor import (
     ERROR_STATES,
     OUTPUT_STATES,
     PLUG_STATES,
-    SENSOR_DESCRIPTIONS,
 )
 
 from . import publish_besen_state
@@ -55,23 +55,10 @@ async def test_sensor_state(
     mock_besen_client: Mock,
     phases: int,
 ) -> None:
-    """Keep the accepted Core sensor states and registry snapshots unchanged."""
+    """Test sensor states and registry data."""
 
-    # New entities have explicit state/registry coverage in test_session_sensors.
-    # Preserve the upstream Core snapshots for every pre-existing sensor.
-    session_keys = {
-        "session_start",
-        "session_duration",
-        "session_current_limit",
-        "reservation_start",
-        "reservation_duration",
-    }
     mock_besen_client.state = charger_state(phases=phases)
-    with patch(
-        "custom_components.besen.sensor.SENSOR_DESCRIPTIONS",
-        tuple(item for item in SENSOR_DESCRIPTIONS if item.key not in session_keys),
-    ):
-        await setup_integration(hass, mock_config_entry, [Platform.SENSOR])
+    await setup_integration(hass, mock_config_entry, [Platform.SENSOR])
 
     await snapshot_platform(hass, entity_registry, snapshot, mock_config_entry.entry_id)
     mock_besen_client.async_start.assert_awaited_once()
@@ -100,6 +87,11 @@ async def test_sensor_updates_from_client(
                 power=7200,
                 total_energy=123.45,
                 session_energy=4.56,
+                session_start=datetime(2026, 9, 30, 22, 0, tzinfo=UTC),
+                session_duration=3661,
+                session_current_limit=10,
+                scheduled_start=datetime(2026, 9, 30, 21, 30, tzinfo=UTC),
+                charging_time_limit=180,
                 inner_temp_c=26.5,
             )
         ),
@@ -112,6 +104,16 @@ async def test_sensor_updates_from_client(
     assert state.state == "123.45"
     assert (state := hass.states.get("sensor.garage_session_energy")) is not None
     assert state.state == "4.56"
+    assert (state := hass.states.get("sensor.garage_session_start")) is not None
+    assert state.state == "2026-09-30T22:00:00+00:00"
+    assert (state := hass.states.get("sensor.garage_session_duration")) is not None
+    assert state.state == "3661"
+    assert (state := hass.states.get("sensor.garage_session_current_limit")) is not None
+    assert state.state == "10"
+    assert (state := hass.states.get("sensor.garage_scheduled_start")) is not None
+    assert state.state == "2026-09-30T21:30:00+00:00"
+    assert (state := hass.states.get("sensor.garage_charging_time_limit")) is not None
+    assert state.state == "180"
     assert (state := hass.states.get("sensor.garage_internal_temperature")) is not None
     assert state.state == "26.5"
     assert (state := hass.states.get(CHARGING_STATUS_ENTITY_ID)) is not None
@@ -261,6 +263,30 @@ async def test_diagnostic_sensors_disabled_by_default(
     for entry in diagnostic_entries.values():
         assert entry.disabled_by is er.RegistryEntryDisabler.INTEGRATION
         assert hass.states.get(entry.entity_id) is None
+
+
+@pytest.mark.parametrize(
+    "entity_id",
+    [
+        "sensor.garage_session_current_limit",
+        "sensor.garage_scheduled_start",
+        "sensor.garage_charging_time_limit",
+    ],
+)
+async def test_optional_session_sensors_disabled_by_default(
+    hass: HomeAssistant,
+    entity_registry: er.EntityRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_besen_client: Mock,
+    entity_id: str,
+) -> None:
+    """Test rarely used session sensors are disabled by default."""
+
+    await setup_integration(hass, mock_config_entry, [Platform.SENSOR])
+
+    assert (entry := entity_registry.async_get(entity_id)) is not None
+    assert entry.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    assert hass.states.get(entity_id) is None
 
 
 @pytest.mark.parametrize(("phases", "expected"), [(1, False), (3, True)])

@@ -256,8 +256,8 @@ def test_parse_single_ac_charging_status(command: int) -> None:
         "session_start": None,
         "session_duration": 0,
         "session_current_limit": None,
-        "reservation_start": None,
-        "reservation_duration": None,
+        "scheduled_start": None,
+        "charging_time_limit": None,
     }
 
 
@@ -269,8 +269,8 @@ def test_parse_single_ac_charging_status_handles_zero_and_short_payload() -> Non
         "session_start": None,
         "session_duration": 0,
         "session_current_limit": None,
-        "reservation_start": None,
-        "reservation_duration": None,
+        "scheduled_start": None,
+        "charging_time_limit": None,
     }
     with pytest.raises(ProtocolError, match="shorter than 74"):
         parse_single_ac_charging_status(bytes(73), "12345678")

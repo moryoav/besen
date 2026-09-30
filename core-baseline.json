@@ -39,12 +39,12 @@
       "reason": "Match Core's checklist: reauthentication, command error handling and diagnostics done, reconfiguration and repair issues exempt."
     },
     "sensor.py": {
-      "sha256": "2d9a423f63764669dc593fc6a72bc59203604d7d2ca0650351317625c8b64323",
-      "reason": "Add read-only session and reservation sensors. See docs/session-sensors.md."
+      "sha256": "037e6ab6d3c8926ed487b63d4407cadecb76897b96c7612aef4ec9b84fa57286",
+      "reason": "Add read-only session sensors. See docs/session-sensors.md."
     },
     "strings.json": {
-      "sha256": "94f6ea124769d4fc45861bbb4fb37f52831bb9819900ad19bb9938c198e1f98d",
-      "reason": "Add the reauthentication form and success message, and name the session and reservation sensors."
+      "sha256": "b77401000e67921a3e6c46d7df95ab582c419c974ba5bae5b844d9e54e367d04",
+      "reason": "Add the reauthentication form and success message, and name the session sensors."
     }
   },
   "development_additions": {

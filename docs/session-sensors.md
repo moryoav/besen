@@ -1,40 +1,43 @@
-# Session and reservation sensors (unreleased)
+# Session sensors
 
-The custom integration adds five read-only sensors alongside Session energy.
-All five are enabled by default for single- and three-phase chargers.
+The custom integration adds five read-only sensors for the current or most
+recently completed charging session, alongside Session energy. They are created
+for single- and three-phase chargers.
 
-| Entity name | Native value | Meaning |
-| --- | --- | --- |
-| Session start | Timestamp | Charger-reported session initialization/start time, not necessarily the instant power delivery began. |
-| Session duration | Seconds | Elapsed duration reported by the charger, not a locally running timer. |
-| Session current limit | Amperes | Limit recorded for this session, separate from the configurable Charging current number. |
-| Reservation start | Timestamp | Reservation time retained in the session report. |
-| Reservation duration | Minutes | Reported maximum duration for the session/reservation; unknown when unset or unlimited. |
+| Entity name | Native value | Default | Meaning |
+| --- | --- | --- | --- |
+| Session start | Timestamp | Enabled | When the charger started the session. Power delivery can begin later. |
+| Session duration | Seconds | Enabled | Elapsed session time reported by the charger, not a locally running timer. |
+| Session current limit | Amperes | Disabled | Current limit recorded for the session, separate from the **Charging current** setting. |
+| Scheduled start | Timestamp | Disabled | Start time of a scheduled (delayed) session. For an immediate start, the time the start was requested. |
+| Charging time limit | Minutes | Disabled | Time after which the charger ends the session. Unknown when there is no limit. |
 
-The last reported values may remain after a session ends. Missing fields are
-unknown before the first session report. Zero duration remains a valid zero;
-unset timestamps and unset/unlimited limits are not displayed as dates or
-large numbers. A subsequent empty report clears previous optional values.
-All sensors become unavailable when the connection or authentication is lost.
-No reservation controls, additional polling, or charging commands are added.
+Enable the disabled sensors from the charger's device page if you use them.
+Sessions started from Home Assistant are immediate and set no time limit, so
+their Scheduled start is the time of the start request and Charging time limit
+stays unknown. A scheduled start or a time limit appears only when one is set
+elsewhere, such as in the vendor app. The charger firmware calls a scheduled
+start a "reservation".
 
-Sessions started from Home Assistant are immediate and request no maximum
-duration, so their Reservation start is the time of the start request and
-Reservation duration stays unknown. A scheduled start time or a duration limit
-appears only when one is set elsewhere, such as in the vendor app.
+The last reported values remain after a session ends. The sensors are unknown
+before the first session report. Zero duration remains a valid zero; unset
+timestamps and unset or unlimited limits are unknown instead of dates or large
+numbers. A later report without these values clears them. All sensors become
+unavailable when the connection or authentication is lost. No scheduling
+controls, additional polling, or charging commands are added.
 
 ## Protocol and validation
 
 The existing parser handles both current (`0x0005`) and completed (`0x0006`)
 session reports, requiring at least 74 payload bytes. Session energy decoding
-and the existing electrical/status sensors are unchanged.
+and the existing electrical and status sensors are unchanged.
 
 | Field | Payload bytes (zero-based, end exclusive) |
 | --- | --- |
-| Maximum duration, minutes | `[20:22]` |
-| Reservation timestamp | `[26:30]` |
+| Charging time limit, minutes | `[20:22]` |
+| Scheduled start timestamp | `[26:30]` |
 | Session current limit | `[46:47]` |
-| Session timestamp | `[47:51]` |
+| Session start timestamp | `[47:51]` |
 | Elapsed duration, seconds | `[51:55]` |
 | Session energy (existing) | `[63:67]` |
 
@@ -49,27 +52,20 @@ synchronization is unchanged, and EVSEMaster's per-device clock-skew
 compensation is not added. A session started while the vendor app, rather than
 Besen, last set the charger clock may therefore show an offset time.
 
-Automated tests cover both command types, packet framing, units, extended and
-truncated payloads, sentinel values, model merging, Home Assistant entity
-metadata, push updates, clearing old values, and connection/authentication
-availability. Hardware validation is still required: compare the timestamps,
-current limit, elapsed time, and any reservation with the vendor app on a real
-charger. The packet fixtures are synthetic, not claimed device captures.
+Library tests cover both report types, packet framing, extended and truncated
+payloads, sentinel values, timestamp round trips, and model merging. The Home
+Assistant tests add the sensors to the sensor platform snapshots and cover push
+updates and the disabled-by-default sensors. The packet fixtures are synthetic,
+not device captures. Compare the timestamps, elapsed time, current limit, and
+any scheduled start with the vendor app on a real charger.
 
-## Release and development notes
+## Development notes
 
-This change prepares library **0.4.8** and pins the custom integration to that
-version. **Publish `library-v0.4.8` to PyPI before releasing a HACS version
-that depends on it.** No tag or release is created by this PR, and the HACS
-version is intentionally left for the maintainer's release process.
-For development/tests, install this checkout with `pip install -e ".[dev]"`;
-testing only the custom component against the 0.4.7 wheel is insufficient.
+Library 0.4.8 provides these fields, and the custom integration requires it.
+For development and tests, install this checkout with `pip install -e ".[dev]"`.
 
-The pinned Home Assistant Core baseline does not contain these entities yet.
+The pinned Home Assistant Core baseline does not contain these sensors yet.
 `core-baseline.json` retains its original Core hashes, records `sensor.py` as a
-hash-checked development override, and updates the existing `strings.json`
-override to include the five sensor names. The alignment check remains strict
-for all other source files and for the exact contents of those overrides.
-The original Core sensor snapshots are retained; the additional entities have
-explicit registration, state, units, and availability tests in
-`tests/integration/test_session_sensors.py`.
+hash-checked development override, and extends the existing `strings.json`
+override with the five sensor names. The alignment check remains strict for all
+other source files and for the exact contents of those overrides.

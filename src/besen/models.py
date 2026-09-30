@@ -100,8 +100,8 @@ class ChargeStatus:
     session_start: datetime | None = None
     session_duration: int | None = None  # Seconds reported by the charger.
     session_current_limit: int | None = None  # Amperes for this session.
-    reservation_start: datetime | None = None
-    reservation_duration: int | None = None  # Minutes; None means unset/unlimited.
+    scheduled_start: datetime | None = None
+    charging_time_limit: int | None = None  # Minutes; None means unset/unlimited.
 
     def updated(self, **changes: Any) -> ChargeStatus:
         """Return a copy with changed fields."""

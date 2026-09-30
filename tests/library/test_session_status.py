@@ -1,4 +1,4 @@
-"""Regression tests for session and reservation telemetry."""
+"""Regression tests for session, scheduled start, and time limit telemetry."""
 
 from datetime import UTC, datetime, timedelta
 
@@ -36,14 +36,14 @@ def test_session_report_fields(command: int, extra_bytes: int) -> None:
         "session_start": datetime(2026, 9, 18, 17, tzinfo=UTC),
         "session_duration": 3661,
         "session_current_limit": 16,
-        "reservation_start": datetime(2026, 9, 18, 16, tzinfo=UTC),
-        "reservation_duration": 180,
+        "scheduled_start": datetime(2026, 9, 18, 16, tzinfo=UTC),
+        "charging_time_limit": 180,
     }
     status = ChargeStatus(power=3500, total_energy=104.56).updated(**values)
     assert status.session_start is not None
     assert status.session_start.utcoffset() is not None
-    assert status.reservation_start is not None
-    assert status.reservation_start.utcoffset() is not None
+    assert status.scheduled_start is not None
+    assert status.scheduled_start.utcoffset() is not None
     assert status.power == 3500
     assert status.total_energy == 104.56
 
@@ -56,7 +56,7 @@ def test_unset_session_timestamps(sentinel: int) -> None:
     payload[47:51] = sentinel.to_bytes(4, "big")
     values = parse_single_ac_charging_status(bytes(payload), "")
     assert values["session_start"] is None
-    assert values["reservation_start"] is None
+    assert values["scheduled_start"] is None
 
 
 def test_session_timestamps_round_trip_the_written_clock() -> None:
@@ -68,7 +68,7 @@ def test_session_timestamps_round_trip_the_written_clock() -> None:
     payload[26:30] = written
     payload[47:51] = written
     values = parse_single_ac_charging_status(bytes(payload), "")
-    for key in ("session_start", "reservation_start"):
+    for key in ("session_start", "scheduled_start"):
         assert before <= values[key] <= after
         assert values[key].utcoffset() == timedelta(0)
 
@@ -77,12 +77,12 @@ def test_session_timestamps_round_trip_the_written_clock() -> None:
     ("minutes", "expected"),
     [(0, None), (65535, None), (1, 1), (180, 180), (65534, 65534)],
 )
-def test_reservation_duration(minutes: int, expected: int | None) -> None:
-    """The reservation limit is minutes, with unset/unlimited values unknown."""
+def test_charging_time_limit(minutes: int, expected: int | None) -> None:
+    """The charging time limit is minutes, with unset/unlimited values unknown."""
     payload = bytearray(74)
     payload[20:22] = minutes.to_bytes(2, "big")
     assert (
-        parse_single_ac_charging_status(bytes(payload), "")["reservation_duration"]
+        parse_single_ac_charging_status(bytes(payload), "")["charging_time_limit"]
         == expected
     )
 
@@ -127,15 +127,15 @@ def test_empty_report_clears_previous_session() -> None:
         session_start=datetime.fromisoformat("2026-09-18T12:00:00+00:00"),
         session_duration=3661,
         session_current_limit=16,
-        reservation_start=datetime.fromisoformat("2026-09-18T11:00:00+00:00"),
-        reservation_duration=180,
+        scheduled_start=datetime.fromisoformat("2026-09-18T11:00:00+00:00"),
+        charging_time_limit=180,
     )
     cleared = old.updated(**parse_single_ac_charging_status(bytes(74), ""))
     assert cleared.session_start is None
     assert cleared.session_duration == 0
     assert cleared.session_current_limit is None
-    assert cleared.reservation_start is None
-    assert cleared.reservation_duration is None
+    assert cleared.scheduled_start is None
+    assert cleared.charging_time_limit is None
     assert cleared.session_energy == 0
     assert cleared.power == 3500
     assert old.session_duration == 3661
@@ -147,5 +147,5 @@ def test_session_fields_are_unknown_before_first_report() -> None:
     assert status.session_start is None
     assert status.session_duration is None
     assert status.session_current_limit is None
-    assert status.reservation_start is None
-    assert status.reservation_duration is None
+    assert status.scheduled_start is None
+    assert status.charging_time_limit is None
