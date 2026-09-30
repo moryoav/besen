@@ -420,12 +420,14 @@ def parse_single_ac_charging_status(data: bytes, _identifier: str) -> dict[str, 
 
 
 def _parse_session_timestamp(data: bytes) -> datetime | None:
-    """Decode an optional timestamp using the existing charger clock convention."""
+    """Decode an optional session timestamp as a UTC Unix epoch."""
 
+    # The clock sync and charge start payload write plain Unix epochs (see
+    # timestamp_bytes), so the charger reports them back unshifted.
     epoch = bytes_to_integer(data)
     if epoch in {0, 0xFFFFFFFF}:
         return None
-    return datetime.fromisoformat(bytes_to_timestamp(epoch))
+    return datetime.fromtimestamp(epoch, UTC)
 
 
 def parse_output_amps(data: bytes, _identifier: str) -> dict[str, Any]:

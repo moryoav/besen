@@ -1,15 +1,15 @@
 """Regression tests for session and reservation telemetry."""
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 from besen.exceptions import ProtocolError
 from besen.models import ChargeStatus
 from besen.protocol import (
     PARSERS,
     build_command,
-    bytes_to_timestamp,
     parse_packet,
     parse_single_ac_charging_status,
+    timestamp_bytes,
 )
 import pytest
 
@@ -33,10 +33,10 @@ def test_session_report_fields(command: int, extra_bytes: int) -> None:
 
     assert values == {
         "session_energy": 4.56,
-        "session_start": datetime.fromisoformat(bytes_to_timestamp(1_789_750_800)),
+        "session_start": datetime(2026, 9, 18, 17, tzinfo=UTC),
         "session_duration": 3661,
         "session_current_limit": 16,
-        "reservation_start": datetime.fromisoformat(bytes_to_timestamp(1_789_747_200)),
+        "reservation_start": datetime(2026, 9, 18, 16, tzinfo=UTC),
         "reservation_duration": 180,
     }
     status = ChargeStatus(power=3500, total_energy=104.56).updated(**values)
@@ -59,6 +59,20 @@ def test_unset_session_timestamps(sentinel: int) -> None:
     assert values["reservation_start"] is None
 
 
+def test_session_timestamps_round_trip_the_written_clock() -> None:
+    """Timestamps the library writes to the charger decode to the same instant."""
+    before = datetime.now(UTC).replace(microsecond=0)
+    written = bytes(timestamp_bytes())
+    after = datetime.now(UTC)
+    payload = bytearray(74)
+    payload[26:30] = written
+    payload[47:51] = written
+    values = parse_single_ac_charging_status(bytes(payload), "")
+    for key in ("session_start", "reservation_start"):
+        assert before <= values[key] <= after
+        assert values[key].utcoffset() == timedelta(0)
+
+
 @pytest.mark.parametrize(
     ("minutes", "expected"),
     [(0, None), (65535, None), (1, 1), (180, 180), (65534, 65534)],
@@ -67,9 +81,10 @@ def test_reservation_duration(minutes: int, expected: int | None) -> None:
     """The reservation limit is minutes, with unset/unlimited values unknown."""
     payload = bytearray(74)
     payload[20:22] = minutes.to_bytes(2, "big")
-    assert parse_single_ac_charging_status(bytes(payload), "")[
-        "reservation_duration"
-    ] == expected
+    assert (
+        parse_single_ac_charging_status(bytes(payload), "")["reservation_duration"]
+        == expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -79,9 +94,10 @@ def test_session_current_limit(amps: int, expected: int | None) -> None:
     """Read the session limit without substituting the configured current limit."""
     payload = bytearray(74)
     payload[46] = amps
-    assert parse_single_ac_charging_status(bytes(payload), "")[
-        "session_current_limit"
-    ] == expected
+    assert (
+        parse_single_ac_charging_status(bytes(payload), "")["session_current_limit"]
+        == expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -91,9 +107,10 @@ def test_session_duration(seconds: int, expected: int | None) -> None:
     """Reported elapsed seconds preserve zero and reject the all-ones sentinel."""
     payload = bytearray(74)
     payload[51:55] = seconds.to_bytes(4, "big")
-    assert parse_single_ac_charging_status(bytes(payload), "")[
-        "session_duration"
-    ] == expected
+    assert (
+        parse_single_ac_charging_status(bytes(payload), "")["session_duration"]
+        == expected
+    )
 
 
 @pytest.mark.parametrize("length", [0, 20, 46, 50, 54, 63, 73])

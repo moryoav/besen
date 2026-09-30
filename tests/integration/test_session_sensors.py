@@ -83,17 +83,13 @@ async def test_session_report_updates_entities(
     payload[51:55] = (3661).to_bytes(4, "big")
     payload[63:67] = (456).to_bytes(4, "big")
     charge = ChargeStatus(**PARSERS[command](bytes(payload), ""))
-    publish_besen_state(
-        mock_besen_client, charger_state(charge=charge, charge_amps=32)
-    )
+    publish_besen_state(mock_besen_client, charger_state(charge=charge, charge_amps=32))
     await hass.async_block_till_done()
-    assert charge.session_start is not None
-    assert charge.reservation_start is not None
     expected = {
-        "session_start": charge.session_start.isoformat(),
+        "session_start": "2026-09-18T17:00:00+00:00",
         "session_duration": "3661",
         "session_current_limit": "16",
-        "reservation_start": charge.reservation_start.isoformat(),
+        "reservation_start": "2026-09-18T16:00:00+00:00",
         "reservation_duration": "180",
         "session_energy": "4.56",
     }
@@ -112,9 +108,7 @@ async def test_session_report_updates_entities(
         assert state.state == ("0" if key == "session_duration" else STATE_UNKNOWN)
 
 
-@pytest.mark.parametrize(
-    ("available", "authenticated"), [(False, True), (True, False)]
-)
+@pytest.mark.parametrize(("available", "authenticated"), [(False, True), (True, False)])
 async def test_session_entities_disconnect_and_recover(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
@@ -134,9 +128,7 @@ async def test_session_entities_disconnect_and_recover(
     await setup_integration(hass, mock_config_entry, [Platform.SENSOR])
     publish_besen_state(
         mock_besen_client,
-        charger_state(
-            charge=charge, available=available, authenticated=authenticated
-        ),
+        charger_state(charge=charge, available=available, authenticated=authenticated),
     )
     await hass.async_block_till_done()
     for key in SESSION_KEYS:
