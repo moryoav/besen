@@ -4,6 +4,109 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.5.8] - 2026-09-30 (HACS integration)
+
+### Changed
+
+- Remove **Reconfigure** from the charger entry menu to match Home Assistant Core, which marks the `reconfiguration-flow` quality rule exempt for Besen. The Bluetooth address is the unique ID, and a changed PIN is handled by the reauthentication prompt.
+- Keep the non-ASCII PIN check from 0.5.7 and the Python library at `besen==0.4.7`. Entities, settings, and charging behavior are unchanged.
+
+### Updating
+
+Install the update through HACS and restart Home Assistant. Keep the existing Besen entry. After changing the PIN on the charger, reload the Besen entry and enter the new PIN when Home Assistant asks you to reauthenticate.
+
+### Validation
+
+- Passed 241 tests and 72 snapshots with 96.95% combined coverage, plus Ruff, mypy, Core alignment, hassfest, and package validation.
+
+## [0.5.7] - 2026-09-29 (HACS integration)
+
+### Added
+
+- Restore **Reconfigure** in the charger entry menu to update the saved PIN without removing the integration. The new PIN is checked with the same charger before the existing entry is updated and reloaded, keeping its entities, history, names, and options. Only the PIN saved in Home Assistant changes, not the PIN on the charger.
+
+### Changed
+
+- The charger accepts one Bluetooth connection, so submitting the form briefly closes it for the check. If the check fails, the saved PIN is kept and the integration reconnects with it. No charging commands are sent.
+- Mark the `reconfiguration-flow` quality scale rule done. Keep the Python library at `besen==0.4.7`.
+
+### Fixed
+
+- Reject PINs that contain non-ASCII digits, such as Arabic-Indic or full-width digits, as invalid authentication before connecting to the charger.
+
+### Updating
+
+Install the update through HACS and restart Home Assistant. Keep the existing Besen entry. To change the saved PIN, open **Settings** > **Devices & services** > **Besen**, open the charger entry menu, and select **Reconfigure**.
+
+### Validation
+
+- Passed 249 tests and 72 snapshots with 97.00% combined coverage, plus Ruff, mypy, Core alignment, hassfest, and package validation. Testing on a physical charger is pending.
+
+## [0.5.6] - 2026-09-29 (HACS integration)
+
+### Changed
+
+- Use named constants for the serial number and device name redaction keys in diagnostics.
+- Snapshot the complete diagnostics download in tests while retaining explicit checks for private data, cached-state preservation, and no charger commands.
+
+### Validation
+
+- Passed 239 tests and 67 snapshots with 96.95% combined coverage, plus Ruff, mypy, Core alignment, and package validation. Physical Home Assistant testing is pending.
+
+## [0.5.5] - 2026-09-29 (HACS integration)
+
+### Added
+
+- Add **Download diagnostics** to help troubleshoot charger issues. The download includes charger details, settings, readings, and connection/authentication status.
+- Redact the PIN, Bluetooth address, serial number, and charger names. Raw command replies and free-text errors are excluded.
+- Read cached data only, without sending commands or interrupting charging. If setup has not completed, return the redacted configuration.
+
+### Changed
+
+- Mark the integration as Silver and the diagnostics quality rule as done.
+- Keep the Python library at `besen==0.4.7`. Charging controls and Bluetooth connection behavior are unchanged.
+
+### Updating
+
+Install the update through HACS and restart Home Assistant. Keep the existing Besen entry. Open **Settings** > **Devices & services** > **Besen**, then open the charger entry menu and select **Download diagnostics**.
+
+### Testing
+
+Automated tests cover the download, redaction, connection and authentication states, missing readings, and preservation of cached data. Testing on a physical charger is still pending.
+
+## [0.5.4] - 2026-09-18 (HACS integration)
+
+### Added
+
+- Restore PIN reauthentication. When the charger rejects the saved PIN during setup or reconnection, Home Assistant opens a reauthentication prompt for the existing entry. The new PIN is validated with the same charger before the entry is updated and reloaded, keeping its entities, history, names, and options. An invalid PIN keeps the form open, and a connection error leaves the saved PIN unchanged.
+
+### Changed
+
+- Bump the dependency to `besen==0.4.7` for its typed PIN rejection state. Automatic reconnect attempts pause after a rejected PIN, and Bluetooth outages or incomplete logins never ask for a PIN.
+- Mark the `reauthentication-flow` and `action-exceptions` quality scale rules done. The manifest tier remains Bronze until Core accepts Silver.
+- Keep the accepted Core checksums and record the four changed integration files as explained development overrides until a Core PR adopts them. Existing entities, settings, charging commands, and automation behavior are unchanged.
+
+### Validation
+
+- Passed 227 tests and 66 snapshots with 96.92% combined coverage, plus Ruff, mypy, Core alignment, and package validation.
+- Passed the 93 integration tests and 66 snapshots against the published `besen` 0.4.7 package from PyPI. No physical charger was operated for this change.
+
+## [0.4.7] - 2026-09-18 (Python library)
+
+### Added
+
+- Add the typed `BesenData.auth_failed` state for an explicit PIN rejection. A Bluetooth outage, an incomplete login, or error-message text cannot be mistaken for rejected credentials.
+
+### Changed
+
+- Stop watchdog and reconnect retries after the charger rejects the PIN, and ignore queued packets from the rejected login. A new login attempt clears the failure state.
+- Charging commands, response correlation, outage logging, and the existing public API are unchanged.
+
+### Validation
+
+- Cover explicit and unsolicited rejections, rejected-login packet ordering, watchdog and reconnect suppression, recovery with a replacement PIN, and startup rejection.
+- Passed 227 tests and 66 snapshots with 96.92% combined coverage, plus Ruff, mypy, Core alignment, and package validation. No physical charger was operated for this change.
+
 ## [0.5.3] - 2026-09-17 (HACS integration)
 
 ### Changed

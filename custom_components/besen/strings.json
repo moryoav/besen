@@ -3,7 +3,8 @@
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
       "no_devices_found": "[%key:common::config_flow::abort::no_devices_found%]",
-      "not_supported": "This Bluetooth device is not a supported Besen charger."
+      "not_supported": "This Bluetooth device is not a supported Besen charger.",
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
     },
     "error": {
       "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
@@ -22,6 +23,16 @@
         },
         "description": "Enter the 6-digit Bluetooth PIN for this charger.",
         "title": "Set up Besen"
+      },
+      "reauth_confirm": {
+        "data": {
+          "pin": "[%key:common::config_flow::data::pin%]"
+        },
+        "data_description": {
+          "pin": "The 6-digit Bluetooth PIN configured on the charger."
+        },
+        "description": "The charger rejected its saved Bluetooth PIN. Enter the current 6-digit PIN.",
+        "title": "Reauthenticate Besen"
       },
       "user": {
         "data": {

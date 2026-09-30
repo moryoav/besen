@@ -9,6 +9,7 @@ from besen.client import BesenClient
 from besen.exceptions import CommandFailed
 from besen.models import BesenData
 
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -41,6 +42,7 @@ class BesenCoordinator(DataUpdateCoordinator[BesenData]):
         self.client = client
         self._remove_listener: Callable[[], None] | None = None
         self._client_stopped = True
+        self._reauth_requested = False
 
     async def async_start(self) -> None:
         """Start listening to charger updates."""
@@ -79,6 +81,17 @@ class BesenCoordinator(DataUpdateCoordinator[BesenData]):
         """Publish a client state update."""
 
         self.async_set_updated_data(data)
+        assert self.config_entry is not None
+        if (
+            data.auth_failed
+            and not self._reauth_requested
+            and self.config_entry.state is ConfigEntryState.LOADED
+        ):
+            # Setup failures are handled by ConfigEntryAuthFailed in __init__.py.
+            self._reauth_requested = True
+            self.config_entry.async_start_reauth(self.hass)
+        elif data.authenticated:
+            self._reauth_requested = False
 
     async def async_start_charging(self) -> None:
         """Start charging."""

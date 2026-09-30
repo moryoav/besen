@@ -22,13 +22,35 @@
     "__init__.py": "a49d96b831ed934e5f249553a7ea566bd340a2d3ca2d59188be7d992ea356349"
   },
   "development_overrides": {
+    "config_flow.py": {
+      "sha256": "d06f5ee644a33fbe00fb04cbed2bf6426e31ae442c9c741430969af2b661e4e8",
+      "reason": "Restore PIN-only reauthentication and reject PINs with non-ASCII digits."
+    },
+    "coordinator.py": {
+      "sha256": "51efb6cb6c6b2fb9b0f92b8fa0a8051d207f1d945517e7a043db0cc60c5e0903",
+      "reason": "Trigger runtime reauthentication from the explicit library auth_failed state."
+    },
+    "manifest.json": {
+      "sha256": "e24aaa3c93922c4bb3a8732f05dcfb3fdca1690461fca338531aca42300241f7",
+      "reason": "Match Core's Platinum quality tier."
+    },
+    "quality_scale.yaml": {
+      "sha256": "6957c46e7f9a1ccaa942f2c438ca20f9685ba5f75e0f6e486198ade031fb929c",
+      "reason": "Match Core's checklist: reauthentication, command error handling and diagnostics done, reconfiguration and repair issues exempt."
+    },
     "sensor.py": {
-      "reason": "Read-only session and reservation sensors; not yet in the pinned Core baseline. See docs/session-sensors.md.",
-      "sha256": "2d9a423f63764669dc593fc6a72bc59203604d7d2ca0650351317625c8b64323"
+      "sha256": "2d9a423f63764669dc593fc6a72bc59203604d7d2ca0650351317625c8b64323",
+      "reason": "Add read-only session and reservation sensors. See docs/session-sensors.md."
     },
     "strings.json": {
-      "reason": "Names for the five additional session/reservation sensors. See docs/session-sensors.md.",
-      "sha256": "3d2ca9d5895c67e3991445715daaafba97f80c3914167a82ad0b1ade5d6b9060"
+      "sha256": "94f6ea124769d4fc45861bbb4fb37f52831bb9819900ad19bb9938c198e1f98d",
+      "reason": "Add the reauthentication form and success message, and name the session and reservation sensors."
+    }
+  },
+  "development_additions": {
+    "diagnostics.py": {
+      "sha256": "bcacc9a8d73b78b60dc6aaad563ba0956863127da201376a4763da0f0a701a4e",
+      "reason": "Add redacted charger diagnostics ahead of a separate Core PR."
     }
   }
 }

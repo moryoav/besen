@@ -678,8 +678,12 @@ class BesenClient:
         """Handle a parsed charger packet."""
 
         async with self._packet_lock:
-            if self._stopping or (
-                generation is not None and generation != self._connection_generation
+            if (
+                self._stopping
+                or self._auth_failed
+                or (
+                    generation is not None and generation != self._connection_generation
+                )
             ):
                 return
             await self._async_handle_packet_locked(command, data, identifier)
@@ -928,6 +932,7 @@ class BesenClient:
         """Update state and notify listeners."""
 
         was_available = self._state.available and self._state.authenticated
+        changes["auth_failed"] = self._auth_failed
         self._state = self._state.updated(**changes)
         available = self._state.available and self._state.authenticated
         # Initial setup and intentional shutdown are not runtime outages.
@@ -963,7 +968,7 @@ class BesenClient:
 
         while True:
             await asyncio.sleep(MESSAGE_TIMEOUT)
-            if self._stopping:
+            if self._stopping or self._auth_failed:
                 return
             if time.monotonic() - self._last_message <= MESSAGE_TIMEOUT:
                 continue
@@ -981,7 +986,7 @@ class BesenClient:
     def _schedule_reconnect(self) -> None:
         """Schedule a reconnect task if needed."""
 
-        if self._stopping:
+        if self._stopping or self._auth_failed:
             return
         self._reconnect_requested = True
         if self._connect_lock.locked():
