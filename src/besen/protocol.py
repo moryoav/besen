@@ -400,9 +400,35 @@ def parse_single_ac_charging_status(data: bytes, _identifier: str) -> dict[str, 
 
     if len(data) < 74:
         raise ProtocolError("Charging status payload is shorter than 74 bytes")
+    # Session layout is shared by the live (0x0005) and completed (0x0006)
+    # reports. These offsets also match evsemaster's parse_charging_status.
+    # The firmware calls a scheduled start a "reservation".
+    duration = bytes_to_integer(data[51:55])
+    current_limit = byte_to_integer(data[46])
+    charging_time_limit = bytes_to_integer(data[20:22])
     return {
         "session_energy": round(bytes_to_integer(data[63:67]) * 0.01, 2),
+        "session_start": _parse_session_timestamp(data[47:51]),
+        "session_duration": None if duration == 0xFFFFFFFF else duration,
+        "session_current_limit": (
+            None if current_limit in {0, 0xFF} else current_limit
+        ),
+        "scheduled_start": _parse_session_timestamp(data[26:30]),
+        "charging_time_limit": (
+            None if charging_time_limit in {0, 0xFFFF} else charging_time_limit
+        ),
     }
+
+
+def _parse_session_timestamp(data: bytes) -> datetime | None:
+    """Decode an optional session timestamp as a UTC Unix epoch."""
+
+    # The clock sync and charge start payload write plain Unix epochs (see
+    # timestamp_bytes), so the charger reports them back unshifted.
+    epoch = bytes_to_integer(data)
+    if epoch in {0, 0xFFFFFFFF}:
+        return None
+    return datetime.fromtimestamp(epoch, UTC)
 
 
 def parse_output_amps(data: bytes, _identifier: str) -> dict[str, Any]:

@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.4.8] - 2026-09-30 (Python library)
+
+### Added
+
+- Decode the session start, elapsed session time, session current limit, scheduled start, and charging time limit from the live and completed session reports. They are exposed as the `ChargeStatus` fields `session_start`, `session_duration` (seconds), `session_current_limit` (amperes), `scheduled_start`, and `charging_time_limit` (minutes). The firmware calls a scheduled start a reservation.
+- Timestamps are timezone-aware UTC datetimes, decoded in the same Unix epoch format the library writes when it syncs the charger clock and requests charging. Unset timestamps and limits and an unlimited time limit are `None`, while a zero duration stays `0`.
+
+### Changed
+
+- The new fields default to `None` until the first session report, and a later report without them clears previous values. Session energy decoding, charging commands, clock synchronization, and the existing public API are unchanged.
+
+### Validation
+
+- Cover both report types, extended and truncated payloads, sentinel values, clearing previous values, and a round trip of a timestamp written by the library.
+- Passed 276 tests and 92 snapshots with 96.98% combined coverage, plus Ruff, mypy, Core alignment, and package validation. No physical charger was operated for this change.
+
 ## [0.5.8] - 2026-09-30 (HACS integration)
 
 ### Changed

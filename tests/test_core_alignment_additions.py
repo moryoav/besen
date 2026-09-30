@@ -72,6 +72,18 @@ def test_addition_needs_reason(alignment_project: Path) -> None:
         check_core_alignment.main()
 
 
+def test_addition_needs_checksum(alignment_project: Path) -> None:
+    """Test a pending new file needs a checksum."""
+
+    path = alignment_project / "core-baseline.json"
+    baseline = json.loads(path.read_text(encoding="utf-8"))
+    del baseline["development_additions"]["diagnostics.py"]["sha256"]
+    path.write_text(json.dumps(baseline), encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="Missing development addition checksum"):
+        check_core_alignment.main()
+
+
 def test_addition_cannot_replace_baseline(alignment_project: Path) -> None:
     """Test existing Core files cannot be reclassified as new additions."""
 

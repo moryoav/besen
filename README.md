@@ -96,7 +96,9 @@ The following describes the **integration in this repository**. The built-in ver
 | Sensors | Availability on a new installation |
 | --- | --- |
 | Charging power, total energy, session energy | Enabled by default. |
+| Session start, session duration | Enabled by default. See [session sensors](docs/session-sensors.md). |
 | Internal temperature, charging status, charging message | Enabled by default. |
+| Session current limit, scheduled start, charging time limit | Disabled by default. |
 | External temperature, error state, plug state, output state, current state | Diagnostic entities; disabled by default. |
 | L1 voltage and current; L2/L3 voltage and current on three-phase chargers | Diagnostic entities; disabled by default. |
 

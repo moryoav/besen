@@ -161,6 +161,14 @@ Important telemetry fields:
 - `BesenData.charge.total_energy`: lifetime energy counter in kWh.
 - `BesenData.charge.session_energy`: energy delivered during the current or most
   recently completed charging session in kWh.
+- `BesenData.charge.session_start` and `scheduled_start`: timezone-aware UTC
+  datetimes from the latest session report, or `None` when unset. The scheduled
+  start is the requested start time, which the firmware calls a reservation.
+- `BesenData.charge.session_duration`: elapsed session time in seconds.
+- `BesenData.charge.session_current_limit`: current limit recorded for the session
+  in amperes, or `None` when unset.
+- `BesenData.charge.charging_time_limit`: time after which the charger ends the
+  session in minutes, or `None` when unset or unlimited.
 - `BesenData.charge.inner_temp_c` and `BesenData.charge.outer_temp`: temperatures
   in Celsius, or `None` when the charger reports an invalid value.
 - `BesenData.charge.l1_voltage`, `l2_voltage`, and `l3_voltage`: phase voltages in

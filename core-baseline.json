@@ -4,7 +4,7 @@
   "pull_request": 180888,
   "dependency_override": {
     "baseline": "besen==0.4.2",
-    "development": "besen==0.4.7"
+    "development": "besen==0.4.8"
   },
   "files": {
     "config_flow.py": "9b4f21961b20cfe322ecaad56b3142420a8f5075c894e78c5d03b9e737d8f4d6",
@@ -38,9 +38,13 @@
       "sha256": "6957c46e7f9a1ccaa942f2c438ca20f9685ba5f75e0f6e486198ade031fb929c",
       "reason": "Match Core's checklist: reauthentication, command error handling and diagnostics done, reconfiguration and repair issues exempt."
     },
+    "sensor.py": {
+      "sha256": "037e6ab6d3c8926ed487b63d4407cadecb76897b96c7612aef4ec9b84fa57286",
+      "reason": "Add read-only session sensors. See docs/session-sensors.md."
+    },
     "strings.json": {
-      "sha256": "a86ba3572a72a265be0e5a65f1c684da059c51d76d2865e421fdc8f16b813998",
-      "reason": "Add the reauthentication form and success message."
+      "sha256": "b77401000e67921a3e6c46d7df95ab582c419c974ba5bae5b844d9e54e367d04",
+      "reason": "Add the reauthentication form and success message, and name the session sensors."
     }
   },
   "development_additions": {
