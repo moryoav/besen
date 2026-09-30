@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+## [0.5.8] - 2026-09-30 (HACS integration)
+
+### Changed
+
+- Remove **Reconfigure** from the charger entry menu to match Home Assistant Core, which marks the `reconfiguration-flow` quality rule exempt for Besen. The Bluetooth address is the unique ID, and a changed PIN is handled by the reauthentication prompt.
+- Keep the non-ASCII PIN check from 0.5.7 and the Python library at `besen==0.4.7`. Entities, settings, and charging behavior are unchanged.
+
+### Updating
+
+Install the update through HACS and restart Home Assistant. Keep the existing Besen entry. After changing the PIN on the charger, reload the Besen entry and enter the new PIN when Home Assistant asks you to reauthenticate.
+
+### Validation
+
+- Passed 241 tests and 72 snapshots with 96.95% combined coverage, plus Ruff, mypy, Core alignment, hassfest, and package validation.
+
 ## [0.5.7] - 2026-09-29 (HACS integration)
 
 ### Added
