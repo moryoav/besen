@@ -79,3 +79,16 @@ def test_invalid_development_override_is_rejected(
         ),
     ):
         check_core_alignment.main()
+
+
+def test_development_override_needs_checksum(alignment_root: Path) -> None:
+    """An override without a checksum fails cleanly instead of raising KeyError."""
+
+    path = alignment_root / "core-baseline.json"
+    baseline = json.loads(path.read_text(encoding="utf-8"))
+    baseline["development_overrides"] = {
+        "config_flow.py": {"reason": "Reauthentication pending upstream"}
+    }
+    path.write_text(json.dumps(baseline), encoding="utf-8")
+    with pytest.raises(SystemExit, match="Missing development override checksum"):
+        check_core_alignment.main()

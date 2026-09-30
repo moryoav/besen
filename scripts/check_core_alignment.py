@@ -45,6 +45,8 @@ def main() -> None:
         if override := overrides.get(name):
             if not override.get("reason"):
                 raise SystemExit(f"Missing development override reason for {name}")
+            if not override.get("sha256"):
+                raise SystemExit(f"Missing development override checksum for {name}")
             expected = override["sha256"]
         text = canonical(
             name,
@@ -57,6 +59,8 @@ def main() -> None:
     for name, addition in additions.items():
         if not addition.get("reason"):
             raise SystemExit(f"Missing development addition reason for {name}")
+        if not addition.get("sha256"):
+            raise SystemExit(f"Missing development addition checksum for {name}")
         text = canonical(name, (integration / name).read_text(encoding="utf-8"))
         actual = hashlib.sha256(text.encode()).hexdigest()
         if actual != addition["sha256"]:
