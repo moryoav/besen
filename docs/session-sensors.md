@@ -18,6 +18,11 @@ large numbers. A subsequent empty report clears previous optional values.
 All sensors become unavailable when the connection or authentication is lost.
 No reservation controls, additional polling, or charging commands are added.
 
+Sessions started from Home Assistant are immediate and request no maximum
+duration, so their Reservation start is the time of the start request and
+Reservation duration stays unknown. A scheduled start time or a duration limit
+appears only when one is set elsewhere, such as in the vendor app.
+
 ## Protocol and validation
 
 The existing parser handles both current (`0x0005`) and completed (`0x0006`)
@@ -35,9 +40,14 @@ and the existing electrical/status sensors are unchanged.
 
 The field layout was cross-checked against
 [EVSEMaster's parser](https://github.com/RafaelSchridi/evsemaster/blob/main/evsemaster/protocol.py).
-The implementation uses Besen's existing timestamp conversion and returns
-timezone-aware datetime values to Home Assistant. It does not add EVSEMaster's
-per-device clock-skew compensation or change clock synchronization.
+Timestamps are decoded as UTC Unix epochs and returned to Home Assistant as
+timezone-aware datetime values. This is the format the library writes when it
+syncs the charger clock and requests charging, so a written time decodes to the
+same instant. The older `bytes_to_timestamp` helper shifts values by eight hours
+minus the local UTC offset and is not used for these sensors. Clock
+synchronization is unchanged, and EVSEMaster's per-device clock-skew
+compensation is not added. A session started while the vendor app, rather than
+Besen, last set the charger clock may therefore show an offset time.
 
 Automated tests cover both command types, packet framing, units, extended and
 truncated payloads, sentinel values, model merging, Home Assistant entity
@@ -48,18 +58,18 @@ charger. The packet fixtures are synthetic, not claimed device captures.
 
 ## Release and development notes
 
-This change prepares library **0.4.7** and pins the custom integration to that
-version. **Publish `library-v0.4.7` to PyPI before merging/distributing the new
-integration dependency.** No tag or release is created by this PR, and the
-HACS version is intentionally left for the maintainer's release process.
+This change prepares library **0.4.8** and pins the custom integration to that
+version. **Publish `library-v0.4.8` to PyPI before releasing a HACS version
+that depends on it.** No tag or release is created by this PR, and the HACS
+version is intentionally left for the maintainer's release process.
 For development/tests, install this checkout with `pip install -e ".[dev]"`;
-testing only the custom component against the old 0.4.6 wheel is insufficient.
+testing only the custom component against the 0.4.7 wheel is insufficient.
 
 The pinned Home Assistant Core baseline does not contain these entities yet.
-`core-baseline.json` retains its original Core hashes and explicitly records
-only the two changed integration files (`sensor.py` and `strings.json`) as
-hash-checked development overrides. The alignment check remains strict for
-all other source files and for the exact contents of those overrides.
+`core-baseline.json` retains its original Core hashes, records `sensor.py` as a
+hash-checked development override, and updates the existing `strings.json`
+override to include the five sensor names. The alignment check remains strict
+for all other source files and for the exact contents of those overrides.
 The original Core sensor snapshots are retained; the additional entities have
 explicit registration, state, units, and availability tests in
 `tests/integration/test_session_sensors.py`.

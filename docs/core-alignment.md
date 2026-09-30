@@ -18,13 +18,14 @@ HACS 0.5.0 aligns with Home Assistant Core commit `1d38f3627ba11a1951784d93eb9f1
 | Extra sensors | RSSI, system time, software-version entity | Remove from the custom integration; firmware remains device metadata |
 | Extra flows | Reauthentication, reconfiguration, downloadable diagnostics, custom repairs | Remove features absent from Core; delete obsolete custom repair issues on upgrade. HACS 0.5.4 restores PIN reauthentication ahead of Core. HACS 0.5.8 removes the reconfiguration restored in 0.5.7 because Core marks it exempt |
 | Tests | Integration internals mocked with lightweight stubs | Port Core integration tests to the custom-integration test harness; retain library tests and add upgrade coverage |
-| Dependency | `besen==0.4.2` | HACS 0.5.4 uses `besen==0.4.7` for start-charging response handling, outage logging, and PIN rejection state; the pinned Core baseline uses `0.4.2` |
+| Dependency | `besen==0.4.2` | HACS 0.5.4 uses `besen==0.4.7` for start-charging response handling, outage logging, and PIN rejection state; `main` uses `besen==0.4.8` for session and reservation fields; the pinned Core baseline uses `0.4.2` |
 | Packaging | HACS and library shared release numbering | HACS 0.5.4 and Python library 0.4.7 have independent releases |
 
 ## Necessary differences from Core
 
-- HACS 0.5.4 and `main` use `besen==0.4.7` for start-charging response handling, outage logging, and PIN rejection state while the pinned Core baseline uses `0.4.2`. This exact dependency override is recorded in `core-baseline.json`. Published HACS 0.5.0 keeps its original 0.4.2 dependency.
+- HACS 0.5.4 through 0.5.8 use `besen==0.4.7` for start-charging response handling, outage logging, and PIN rejection state while the pinned Core baseline uses `0.4.2`. `main` uses `besen==0.4.8`, which adds the session and reservation fields. This exact dependency override is recorded in `core-baseline.json`. Published HACS 0.5.0 keeps its original 0.4.2 dependency.
 - HACS 0.5.4 restores PIN reauthentication ahead of Core, so `config_flow.py`, `coordinator.py`, `quality_scale.yaml`, and `strings.json` differ from the baseline. `core-baseline.json` keeps the Core checksums and records each file's checksum and reason as a development override; any other change still fails the alignment check. The `config_flow.py` override also rejects PINs with non-ASCII digits, and the `quality_scale.yaml` override matches Core's current checklist. The overrides can be removed once a Core PR adopts these changes.
+- `main` adds five read-only session and reservation sensors ahead of Core, so `sensor.py` is also a development override and the `strings.json` override also names these sensors. See [session-sensors.md](session-sensors.md).
 - Custom manifest version, repository documentation and issue links, bundled branding, and English translations.
 - A small upgrade adapter fills the name missing from old manual entries, retires the old sync-clock option and repair issues, and migrates the charging-current unique ID. Existing entity IDs, names, history, and user-selected enabled states are retained. Removed entities can remain as unavailable registry entries until users remove them.
 - Home Assistant 2026.9.2 or later is required by this release and is the integration test baseline. The Python library itself retains Python 3.12 compatibility.
