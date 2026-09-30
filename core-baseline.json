@@ -31,12 +31,12 @@
       "reason": "Trigger runtime reauthentication from the explicit library auth_failed state."
     },
     "manifest.json": {
-      "sha256": "db0cc60768c9d755287e4598342b36bff00aaedbab9e3a1cc597cab7aae78025",
-      "reason": "Mark the custom integration as Silver. The Core promotion will follow home-assistant/core#183123."
+      "sha256": "e24aaa3c93922c4bb3a8732f05dcfb3fdca1690461fca338531aca42300241f7",
+      "reason": "Match Core's Platinum quality tier."
     },
     "quality_scale.yaml": {
-      "sha256": "5beebbec3170b80e890a5582dd7438e677e9365e7c4326036d1bb869c6c086e7",
-      "reason": "Match Core's checklist: reauthentication, command error handling and diagnostics done, reconfiguration exempt."
+      "sha256": "6957c46e7f9a1ccaa942f2c438ca20f9685ba5f75e0f6e486198ade031fb929c",
+      "reason": "Match Core's checklist: reauthentication, command error handling and diagnostics done, reconfiguration and repair issues exempt."
     },
     "strings.json": {
       "sha256": "a86ba3572a72a265be0e5a65f1c684da059c51d76d2865e421fdc8f16b813998",
