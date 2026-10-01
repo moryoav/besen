@@ -8,8 +8,14 @@ The `besen` Python library was developed in this repository until 0.4.8. Its ent
 
 ## [Unreleased]
 
+### Added
+
+- Add the **Start charging** action (`besen.start_charging`) for scheduled and time-limited charging. It targets the **Charge** switch and takes an optional `start`, at most 24 hours ahead, and an optional `duration`. The **Scheduled start** and **Charging time limit** sensors show the schedule the charger accepted. See [scheduled charging](docs/scheduled-charging.md).
+
 ### Changed
 
+- Require `besen` 0.4.9 or later for scheduled and time-limited starts. The **Charge** switch, the other entities, and existing automations are unchanged.
+- Keep the accepted Core checksums and record the files that carry the action as development overrides and additions until a Core PR adopts it.
 - Move the `besen` Python library, with its history, to [moryoav/py-besen](https://github.com/moryoav/py-besen). This repository now contains only the HACS integration, which installs the library from PyPI as before. Existing installations, entities, and settings are unchanged.
 - Run the integration tests against the library version required by the manifest, installed from PyPI, instead of the source in this repository.
 

@@ -105,6 +105,27 @@ Enable optional entities from the charger's device page. Use **Total energy** fo
 
 Use standard Home Assistant actions such as `switch.turn_on`, `switch.turn_off`, `number.set_value`, and `select.select_option` in automations. Temperature-select action values are `celsius` and `fahrenheit`.
 
+### Scheduled and time-limited charging
+
+The **Start charging** action (`besen.start_charging`) starts charging at a later time, for a limited time, or both. It targets the charger's **Charge** switch and has two optional fields:
+
+| Field | Purpose |
+| --- | --- |
+| `start` | When the charger starts charging, at most 24 hours ahead. A time without a UTC offset is in your Home Assistant time zone. Leave it out to start now. |
+| `duration` | How long the charger charges before it ends the session, from 1 minute. Leave it out for no time limit. |
+
+```yaml
+action: besen.start_charging
+target:
+  entity_id: switch.garage_charge
+data:
+  start: "2026-10-02 01:00:00"
+  duration:
+    hours: 3
+```
+
+The schedule is stored on the charger. The **Scheduled start** and **Charging time limit** sensors show what the charger accepted. The action fails with an error when the start time is not in the future, is more than 24 hours ahead, or the charger rejects the request. See [scheduled charging](docs/scheduled-charging.md).
+
 Updates arrive through local Bluetooth notifications. The integration keeps a connection open and reconnects when needed. Entities become `unavailable` while disconnected or unauthenticated; missing or unsupported readings appear as `unknown`.
 
 Wi-Fi provisioning, PIN/device resets, charging-history downloads, firmware updates, and safety-certified load balancing are not provided by this integration.

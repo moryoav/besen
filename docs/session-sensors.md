@@ -13,18 +13,19 @@ for single- and three-phase chargers.
 | Charging time limit | Minutes | Disabled | Time after which the charger ends the session. Unknown when there is no limit. |
 
 Enable the disabled sensors from the charger's device page if you use them.
-Sessions started from Home Assistant are immediate and set no time limit, so
-their Scheduled start is the time of the start request and Charging time limit
-stays unknown. A scheduled start or a time limit appears only when one is set
-elsewhere, such as in the vendor app. The charger firmware calls a scheduled
-start a "reservation".
+Sessions started with the **Charge** switch are immediate and set no time limit,
+so their Scheduled start is the time of the start request and Charging time
+limit stays unknown. A scheduled start or a time limit appears when one is set
+with the [Start charging action](scheduled-charging.md), available from HACS
+0.5.10, or elsewhere, such as in the vendor app. The charger firmware calls a
+scheduled start a "reservation".
 
 The last reported values remain after a session ends. The sensors are unknown
 before the first session report. Zero duration remains a valid zero; unset
 timestamps and unset or unlimited limits are unknown instead of dates or large
 numbers. A later report without these values clears them. All sensors become
-unavailable when the connection or authentication is lost. No scheduling
-controls, additional polling, or charging commands are added.
+unavailable when the connection or authentication is lost. The sensors add no
+polling and no charging commands.
 
 ## Protocol and validation
 

@@ -66,3 +66,9 @@ implicit_reexport = true
 [[tool.mypy.overrides]]
 module = ["custom_components.besen.config_flow"]
 disable_error_code = ["arg-type"]
+
+# Stable HA 2026.9.2 likewise annotates entity service schemas with voluptuous
+# markers, while Core's services use probatio markers.
+[[tool.mypy.overrides]]
+module = ["custom_components.besen.services"]
+disable_error_code = ["dict-item"]
