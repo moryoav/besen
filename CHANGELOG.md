@@ -10,7 +10,7 @@ The `besen` Python library was developed in this repository until 0.4.8. Its ent
 
 ### Added
 
-- Add the **Start charging** action (`besen.start_charging`) for scheduled and time-limited charging. It targets the **Charge** switch and takes an optional `start`, at most 24 hours ahead, and an optional `duration`. The **Scheduled start** and **Charging time limit** sensors show the schedule the charger accepted. See [scheduled charging](docs/scheduled-charging.md).
+- Add the **Start charging** action (`besen.start_charging`) for scheduled and time-limited charging. It targets the **Charge** switch and takes an optional `start`, at most 24 hours ahead, and an optional `duration`. The **Scheduled start** and **Charging time limit** sensors show the schedule the charger accepted. See [scheduled charging](https://github.com/moryoav/besen/blob/main/docs/scheduled-charging.md).
 
 ### Changed
 
