@@ -9,8 +9,8 @@ for single- and three-phase chargers.
 | Session start | Timestamp | Enabled | When the charger started the session. Power delivery can begin later. |
 | Session duration | Seconds | Enabled | Elapsed session time reported by the charger, not a locally running timer. |
 | Session current limit | Amperes | Disabled | Current limit recorded for the session, separate from the **Charging current** setting. |
-| Scheduled start | Timestamp | Disabled | Start time of a scheduled (delayed) session. For an immediate start, the time the start was requested. |
-| Charging time limit | Minutes | Disabled | Time after which the charger ends the session. Unknown when there is no limit. |
+| Scheduled start | Timestamp | Disabled | Start time of a scheduled (delayed) session. For an immediate start, the time the start was requested. Unknown unless a schedule is pending or a session is running. |
+| Charging time limit | Minutes | Disabled | Time after which the charger ends the session. Unknown when there is no limit, and unless a schedule is pending or a session is running. |
 
 Enable the disabled sensors from the charger's device page if you use them.
 Sessions started with the **Charge** switch are immediate and set no time limit,
@@ -20,7 +20,10 @@ with the [Start charging action](scheduled-charging.md), available from HACS
 0.5.10, or elsewhere, such as in the vendor app. The charger firmware calls a
 scheduled start a "reservation".
 
-The last reported values remain after a session ends. The sensors are unknown
+The last reported values remain after a session ends, except for Scheduled start
+and Charging time limit. The charger keeps reporting those two after a schedule
+is cancelled or a session has finished, so from HACS 0.5.11 they are shown only
+while a schedule is pending or a session is running. The sensors are unknown
 before the first session report. Zero duration remains a valid zero; unset
 timestamps and unset or unlimited limits are unknown instead of dates or large
 numbers. A later report without these values clears them. All sensors become

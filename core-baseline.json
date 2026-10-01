@@ -4,7 +4,7 @@
   "pull_request": 180888,
   "dependency_override": {
     "baseline": "besen==0.4.2",
-    "development": "besen>=0.4.9"
+    "development": "besen>=0.4.10"
   },
   "files": {
     "config_flow.py": "9b4f21961b20cfe322ecaad56b3142420a8f5075c894e78c5d03b9e737d8f4d6",
@@ -43,12 +43,12 @@
       "reason": "Match Core's checklist: reauthentication, command error handling and diagnostics done, reconfiguration and repair issues exempt. Mark action setup and action documentation done for the start charging action."
     },
     "sensor.py": {
-      "sha256": "037e6ab6d3c8926ed487b63d4407cadecb76897b96c7612aef4ec9b84fa57286",
-      "reason": "Add read-only session sensors. See docs/session-sensors.md."
+      "sha256": "fee2828fc773c5a9ce37405838d93cfbd13cd5703ebfdc632c814d35b9322e72",
+      "reason": "Add read-only session sensors, show the schedule sensors only while a schedule is pending or a session is running, and rename the charging status state canceled to scheduled. See docs/session-sensors.md."
     },
     "strings.json": {
-      "sha256": "596d7f59ad73288e4e4c3fb42e44be3df1a90d6f76511ab1faec625475ae2d4b",
-      "reason": "Add the reauthentication form and success message, name the session sensors, and describe the start charging action and its start time error."
+      "sha256": "1092fb89c6b860a389af76c5bb9e8dd7dcf8a7512612a095395b118641402118",
+      "reason": "Add the reauthentication form and success message, name the session sensors, describe the start charging action and its start time error, and rename the charging status state canceled to scheduled."
     },
     "switch.py": {
       "sha256": "32b09adf60798364f83e750101c323fa0a09df9e6bff066914922383a64e376d",

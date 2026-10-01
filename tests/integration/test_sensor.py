@@ -1,5 +1,6 @@
 """Tests for the Besen sensor platform."""
 
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from besen.const import (
@@ -273,6 +274,50 @@ async def test_optional_session_sensors_disabled_by_default(
     assert hass.states.get(entity_id) is None
 
 
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+@pytest.mark.parametrize(
+    ("current_state", "shown"),
+    [
+        ("Charging Reservation", True),
+        ("Charging", True),
+        ("Ready to charge", False),
+        ("Completed", False),
+    ],
+)
+async def test_schedule_sensors_follow_the_schedule(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_besen_client: Mock,
+    current_state: str,
+    shown: bool,
+) -> None:
+    """Test a cancelled or finished schedule is no longer reported."""
+
+    await setup_integration(hass, mock_config_entry, [Platform.SENSOR])
+
+    publish_besen_state(
+        mock_besen_client,
+        charger_state(
+            charge=ChargeStatus(
+                charging_status="Cancel",
+                current_state=current_state,
+                scheduled_start=datetime(2026, 10, 1, 22, 0, tzinfo=UTC),
+                charging_time_limit=30,
+            )
+        ),
+    )
+    await hass.async_block_till_done()
+
+    assert (state := hass.states.get(CHARGING_STATUS_ENTITY_ID)) is not None
+    assert state.state == "scheduled"
+    for entity_id in (
+        "sensor.garage_scheduled_start",
+        "sensor.garage_charging_time_limit",
+    ):
+        assert (state := hass.states.get(entity_id)) is not None
+        assert (state.state != STATE_UNKNOWN) is shown
+
+
 @pytest.mark.parametrize(("phases", "expected"), [(1, False), (3, True)])
 async def test_three_phase_sensor_filtering(
     hass: HomeAssistant,
@@ -315,5 +360,5 @@ def test_enum_sensor_options_cover_known_library_states() -> None:
         f"Unknown {index}" for index in range(7)
     }
     assert set(CURRENT_STATES) == set(CURRENT_STATE) - {
-        f"Unknown {index}" for index in range(1, 11)
+        f"Unknown {index}" for index in range(11)
     }

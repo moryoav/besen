@@ -88,7 +88,7 @@ The following describes the **integration in this repository**. The built-in ver
 
 | Control | Purpose |
 | --- | --- |
-| **Charge** switch | Start or stop charging. |
+| **Charge** switch | Start or stop charging, at the current set by **Charging current**. |
 | **Charging current** number | Set the current limit from 6 A to the charger's reported maximum, with a 32 A fallback when no maximum is reported. |
 | **Temperature unit** select | Choose Celsius or Fahrenheit on the charger's screen. This does not change Home Assistant's temperature units. |
 
@@ -124,7 +124,9 @@ data:
     hours: 3
 ```
 
-The schedule is stored on the charger. The **Scheduled start** and **Charging time limit** sensors show what the charger accepted. The action fails with an error when the start time is not in the future, is more than 24 hours ahead, or the charger rejects the request. See [scheduled charging](docs/scheduled-charging.md).
+The schedule is stored on the charger, which holds one schedule at a time and accepts it with or without a vehicle connected. While it is pending, the **Charge** switch stays off, **Charging status** shows **Scheduled**, and the **Scheduled start** and **Charging time limit** sensors show what the charger accepted. Turn the **Charge** switch off to cancel it.
+
+The action fails with an error when the start time is not in the future, is more than 24 hours ahead, or the charger rejects the request. The charger rejects a new start while a schedule is pending or a session is charging, so cancel or stop first. See [scheduled charging](docs/scheduled-charging.md).
 
 Updates arrive through local Bluetooth notifications. The integration keeps a connection open and reconnects when needed. Entities become `unavailable` while disconnected or unauthenticated; missing or unsupported readings appear as `unknown`.
 
