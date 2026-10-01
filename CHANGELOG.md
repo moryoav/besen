@@ -6,7 +6,7 @@ This project follows semantic versioning where practical. Tags use a `v` prefix,
 
 The `besen` Python library was developed in this repository until 0.4.8. Its entries remain below, and later library releases are listed in the [py-besen changelog](https://github.com/moryoav/py-besen/blob/main/CHANGELOG.md).
 
-## [Unreleased]
+## [0.5.10] - 2026-10-01 (HACS integration)
 
 ### Added
 
@@ -18,6 +18,14 @@ The `besen` Python library was developed in this repository until 0.4.8. Its ent
 - Keep the accepted Core checksums and record the files that carry the action as development overrides and additions until a Core PR adopts it.
 - Move the `besen` Python library, with its history, to [moryoav/py-besen](https://github.com/moryoav/py-besen). This repository now contains only the HACS integration, which installs the library from PyPI as before. Existing installations, entities, and settings are unchanged.
 - Run the integration tests against the library version required by the manifest, installed from PyPI, instead of the source in this repository.
+
+### Updating
+
+Install the update through HACS and restart Home Assistant, which installs `besen` 0.4.9. Keep the existing Besen entry. The new action is available as **Besen: Start charging** in automations, scripts, and **Developer tools** > **Actions**.
+
+### Validation
+
+- Passed 126 tests and 92 snapshots with 99.80% coverage of the integration, against the published `besen` 0.4.9 package from PyPI, plus Ruff, mypy, Core alignment, and HACS validation.
 
 ## [0.5.9] - 2026-09-30 (HACS integration)
 
