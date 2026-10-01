@@ -84,11 +84,11 @@
             "charging_status": {
                 "name": "Charging status",
                 "state": {
-                    "canceled": "Canceled",
                     "connect": "Connect",
                     "fault": "Fault",
                     "finish_charging": "Finish charging",
                     "finished": "Finished",
+                    "scheduled": "Scheduled",
                     "start": "Start",
                     "waiting": "Waiting"
                 }

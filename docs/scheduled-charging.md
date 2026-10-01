@@ -25,10 +25,8 @@ data:
 ```
 
 The schedule is stored on the charger, which the firmware calls a
-"reservation". The **Scheduled start** and **Charging time limit** sensors show
-the values the charger accepted. See [session sensors](session-sensors.md).
-
-The action waits for the charger's reply, like the **Charge** switch does:
+"reservation". The action waits for the charger's reply, like the **Charge**
+switch does:
 
 - A duration outside the supported range is refused before anything is sent.
 - A start time that is not in the future, or is more than 24 hours ahead, fails
@@ -36,13 +34,36 @@ The action waits for the charger's reply, like the **Charge** switch does:
 - A rejection by the charger, a lost connection, or a missing reply fails with
   the same error as the **Charge** switch.
 
+## What the charger does
+
+Checked on a three-phase Besen BS20:
+
+- The charger holds one schedule at a time and accepts it with or without a
+  vehicle connected.
+- While a schedule is pending, the **Charge** switch stays off, **Charging
+  status** shows **Scheduled**, and **Charging message** shows **Charging
+  reservation**. The **Scheduled start** and **Charging time limit** sensors
+  show the accepted values while the schedule is pending or the session is
+  running. See [session sensors](session-sensors.md).
+- Turning the **Charge** switch off cancels a pending schedule.
+- The charger rejects a new start, scheduled or not, while a schedule is pending
+  or a session is charging. Cancel the schedule or stop the session first.
+- Charging starts at the scheduled time, and a time-limited session stops by
+  itself when the time is up.
+- A start with only a `duration` begins now, so it needs a connected vehicle.
+- After a session has finished, the charger refuses an immediate start until it
+  receives a stop. The library sends that stop automatically, so the **Charge**
+  switch and the action work in that state.
+- Every start uses the current set by **Charging current**. If the charger has
+  not reported that current, the start fails instead of guessing.
+
 ## How it is built
 
 The action is an entity action on the switch platform, registered once when the
 integration is set up, in `services.py`. `services.yaml`, `strings.json`, and
 `icons.json` describe it for the Home Assistant interface.
 
-The `besen` library 0.4.9 builds the request. Its
+The `besen` library builds the request. Its
 `async_start_charging()` takes the start time and the duration in minutes,
 checks the start time, and accepts the charger's "reservation successful"
 reply. The integration converts the start time to UTC and the duration to whole
@@ -69,6 +90,13 @@ cover a duration out of range, an unusable start time, and a charger rejection.
 
 HACS 0.5.10 adds the action. Library 0.4.9 provides scheduled and time-limited
 starts, and the custom integration requires it.
+
+HACS 0.5.11 requires library 0.4.10, which stops a start from falling back to
+the charger's maximum current, corrects the Current state names, and sends the
+stop a finished session needs before an immediate start. The integration shows
+the schedule sensors only while a schedule is pending or a session is running,
+and renames the Charging status state `canceled` to `scheduled`; both are
+recorded as changes to the `sensor.py` and `strings.json` development overrides.
 
 The pinned Home Assistant Core baseline does not contain the action yet.
 `core-baseline.json` retains its original Core hashes, records `__init__.py`,

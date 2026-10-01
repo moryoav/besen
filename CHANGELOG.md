@@ -6,6 +6,20 @@ This project follows semantic versioning where practical. Tags use a `v` prefix,
 
 The `besen` Python library was developed in this repository until 0.4.8. Its entries remain below, and later library releases are listed in the [py-besen changelog](https://github.com/moryoav/py-besen/blob/main/CHANGELOG.md).
 
+## [Unreleased]
+
+### Fixed
+
+- A start no longer falls back to the charger's maximum current when the charger has not reported its charging current. The **Charge** switch and the **Start charging** action now fail with an error in that case, and the library keeps asking the charger for the value. A start also stores its current on the charger, so the old fallback could raise the **Charging current** setting to the maximum.
+- The **Current state** sensor was one state ahead, for example **Ready to charge** with nothing plugged in and **Completed** while charging. It now matches the charger and shows **Charging reservation** while a start is scheduled.
+- The **Charge** switch and the **Start charging** action work again after a session has finished. The charger refuses an immediate start in that state until it receives a stop, which the library now sends first.
+
+### Changed
+
+- Rename the **Charging status** state `canceled` to `scheduled`, shown as **Scheduled**. The charger reports it while a scheduled start is pending. Automations that use `canceled` need the new value.
+- Show **Scheduled start** and **Charging time limit** only while a schedule is pending or a session is running. The charger keeps reporting them after a schedule is cancelled or a session has finished.
+- Require `besen` 0.4.10 or later for the fixes above.
+
 ## [0.5.10] - 2026-10-01 (HACS integration)
 
 ### Added
