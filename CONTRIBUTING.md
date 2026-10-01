@@ -2,21 +2,23 @@
 
 Thanks for your interest in improving Besen for Home Assistant.
 
-I maintain the Python library and the full Home Assistant custom integration in
-this repository:
-
-- `src/besen`: the reusable Bluetooth client, protocol parser, and data models.
-- `custom_components/besen`: the Home Assistant config flow, entities,
-  diagnostics, repairs, translations, and brand assets.
+I maintain the full Home Assistant custom integration in this repository:
+`custom_components/besen` holds the config flow, entities, diagnostics,
+translations, and brand assets. The `besen` Python library that talks to the
+charger lives in [moryoav/py-besen](https://github.com/moryoav/py-besen); please
+send Bluetooth client, protocol, and data model changes there.
 
 ## Development and releases
 
-I use `main` for ongoing library and full custom integration development. Stable
-`vX.Y.Z` tags publish HACS releases and must match the integration manifest.
-`library-vX.Y.Z` tags publish the Python package to PyPI and must match
-`pyproject.toml` and `src/besen/__init__.py`. Library-only releases do not replace
-the latest HACS release. A `vX.Y.Z` tag also publishes the library when both
-versions match. Update `CHANGELOG.md` for each release.
+I use `main` for ongoing custom integration development. Stable `vX.Y.Z` tags
+publish HACS releases and must match the integration manifest. Update
+`CHANGELOG.md` for each release.
+
+The library was developed here until 0.4.8, so the older `library-vX.Y.Z` tags and
+releases remain in this repository. Newer library versions are released from
+moryoav/py-besen. To use one, raise the `besen` requirement in
+`custom_components/besen/manifest.json` and `dependency_override.development` in
+`core-baseline.json` once it is available on PyPI.
 
 Core contributions belong in branches of the Home Assistant fork, with separate
 dependency and platform pull requests. Keep supported features in the custom
@@ -78,19 +80,22 @@ git clone https://github.com/moryoav/besen.git
 cd besen
 ```
 
-Install development dependencies:
+Install the test dependencies and the library version required by the manifest:
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install -r requirements_test.txt
+python -m pip install $(python -c "import json; print(*json.load(open('custom_components/besen/manifest.json'))['requirements'])")
 ```
+
+To test against a local checkout of the library, install it afterwards with
+`python -m pip install -e ../py-besen`.
 
 The repository layout is:
 
 ```text
 custom_components/besen/  Home Assistant custom integration
-src/besen/                     Shared Python Bluetooth library
-tests/                         Lightweight local tests
-.github/workflows/             CI, HACS, Hassfest, and release workflows
+tests/                    Core-derived integration tests and Core alignment checks
+.github/workflows/        CI, HACS, Hassfest, and release workflows
 ```
 
 For local Home Assistant testing, copy the integration into:
@@ -118,9 +123,8 @@ Please keep pull requests focused. A good pull request should:
   Wi-Fi details, or personal Home Assistant configuration.
 
 For HACS releases, update `custom_components/besen/manifest.json` and
-`CHANGELOG.md`. For Python library releases, update `pyproject.toml`,
-`src/besen/__init__.py`, and `CHANGELOG.md`. Bump the integration's pinned
-dependency only after the new library version is available on PyPI.
+`CHANGELOG.md`. Raise the integration's library requirement only after the new
+library version is available on PyPI.
 
 ## Testing
 

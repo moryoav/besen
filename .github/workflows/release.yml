@@ -4,12 +4,10 @@ on:
   push:
     tags:
       - "v*"
-      - "library-v*"
   workflow_dispatch:
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
   release:
@@ -19,38 +17,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
-      - name: Validate release versions
-        id: versions
+      - name: Validate release version
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           python - <<'PY'
           import json
           import os
-          import tomllib
           from pathlib import Path
 
           tag = os.environ["RELEASE_TAG"]
-          library_only = tag.startswith("library-v")
-          version = tag.removeprefix("library-v") if library_only else tag.removeprefix("v")
+          version = tag.removeprefix("v")
           manifest = json.loads(Path("custom_components/besen/manifest.json").read_text())
-          library_version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
           if tag.startswith("v") and version != manifest["version"]:
               raise SystemExit("Release tag must match the HACS manifest version")
-          if library_only and version != library_version:
-              raise SystemExit("Library release tag must match the Python package version")
-          publish_library = library_only or (tag.startswith("v") and version == library_version)
-          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write(f"publish_library={str(publish_library).lower()}\n")
-              output.write(f"library_only={str(library_only).lower()}\n")
           PY
       - name: Check Core alignment
         run: python scripts/check_core_alignment.py
-      - name: Build Python package
-        if: steps.versions.outputs.publish_library == 'true'
-        run: |
-          python -m pip install --upgrade pip build
-          python -m build
       - name: Build release notes
         if: github.event_name == 'push'
         run: |
@@ -60,7 +43,7 @@ jobs:
           import re
 
           tag = os.environ["GITHUB_REF_NAME"]
-          version = tag.removeprefix("library-v") if tag.startswith("library-v") else tag.removeprefix("v")
+          version = tag.removeprefix("v")
           changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
           pattern = rf"^## \[{re.escape(version)}\].*?(?=^## \[|\Z)"
           match = re.search(pattern, changelog, flags=re.MULTILINE | re.DOTALL)
@@ -71,22 +54,8 @@ jobs:
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
-          LIBRARY_ONLY: ${{ steps.versions.outputs.library_only }}
         run: |
-          assets=()
-          options=()
-          if [[ "$LIBRARY_ONLY" == "true" ]]; then
-            options+=(--latest=false)
-          fi
-          if [[ -d dist ]]; then
-            assets=(dist/*)
-          fi
-          gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+          gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
             --notes-file release-notes.md \
-            --verify-tag "${options[@]}"
-      - name: Publish Python package to PyPI
-        if: steps.versions.outputs.publish_library == 'true'
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          skip-existing: true
+            --verify-tag

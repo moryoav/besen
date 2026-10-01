@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning where practical. Tags use a `v` prefix, for example `v0.1.0`.
 
+The `besen` Python library was developed in this repository until 0.4.8. Its entries remain below, and later library releases are listed in the [py-besen changelog](https://github.com/moryoav/py-besen/blob/main/CHANGELOG.md).
+
+## [Unreleased]
+
+### Changed
+
+- Move the `besen` Python library, with its history, to [moryoav/py-besen](https://github.com/moryoav/py-besen). This repository now contains only the HACS integration, which installs the library from PyPI as before. Existing installations, entities, and settings are unchanged.
+- Run the integration tests against the library version required by the manifest, installed from PyPI, instead of the source in this repository.
+
 ## [0.5.9] - 2026-09-30 (HACS integration)
 
 ### Added

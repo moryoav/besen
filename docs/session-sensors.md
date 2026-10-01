@@ -63,7 +63,8 @@ any scheduled start with the vendor app on a real charger.
 
 HACS 0.5.9 adds these sensors. Library 0.4.8 provides the fields, and the
 custom integration requires it.
-For development and tests, install this checkout with `pip install -e ".[dev]"`.
+For development and tests, install the dependencies as described in
+[CONTRIBUTING.md](../CONTRIBUTING.md#development-setup).
 
 The pinned Home Assistant Core baseline does not contain these sensors yet.
 `core-baseline.json` retains its original Core hashes, records `sensor.py` as a

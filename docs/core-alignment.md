@@ -17,9 +17,9 @@ HACS 0.5.0 aligns with Home Assistant Core commit `1d38f3627ba11a1951784d93eb9f1
 | Extra controls | Language, device-name editing, LCD brightness | Remove from the custom integration |
 | Extra sensors | RSSI, system time, software-version entity | Remove from the custom integration; firmware remains device metadata |
 | Extra flows | Reauthentication, reconfiguration, downloadable diagnostics, custom repairs | Remove features absent from Core; delete obsolete custom repair issues on upgrade. HACS 0.5.4 restores PIN reauthentication ahead of Core. HACS 0.5.8 removes the reconfiguration restored in 0.5.7 because Core marks it exempt |
-| Tests | Integration internals mocked with lightweight stubs | Port Core integration tests to the custom-integration test harness; retain library tests and add upgrade coverage |
+| Tests | Integration internals mocked with lightweight stubs | Port Core integration tests to the custom-integration test harness; add upgrade coverage; library tests moved to [moryoav/py-besen](https://github.com/moryoav/py-besen) |
 | Dependency | `besen==0.4.2` | HACS 0.5.4 uses `besen==0.4.7` for start-charging response handling, outage logging, and PIN rejection state; HACS 0.5.9 uses `besen==0.4.8` for session fields; the pinned Core baseline uses `0.4.2` |
-| Packaging | HACS and library shared release numbering | HACS 0.5.4 and Python library 0.4.7 have independent releases |
+| Packaging | HACS and library shared release numbering | HACS 0.5.4 and Python library 0.4.7 have independent releases; the library moved to [moryoav/py-besen](https://github.com/moryoav/py-besen) after 0.4.8 |
 
 ## Necessary differences from Core
 
@@ -28,8 +28,8 @@ HACS 0.5.0 aligns with Home Assistant Core commit `1d38f3627ba11a1951784d93eb9f1
 - HACS 0.5.9 adds five read-only session sensors ahead of Core, so `sensor.py` is also a development override and the `strings.json` override also names these sensors. See [session-sensors.md](session-sensors.md).
 - Custom manifest version, repository documentation and issue links, bundled branding, and English translations.
 - A small upgrade adapter fills the name missing from old manual entries, retires the old sync-clock option and repair issues, and migrates the charging-current unique ID. Existing entity IDs, names, history, and user-selected enabled states are retained. Removed entities can remain as unavailable registry entries until users remove them.
-- Home Assistant 2026.9.2 or later is required by this release and is the integration test baseline. The Python library itself retains Python 3.12 compatibility.
-- Home Assistant Core code retains its Apache 2.0 license; the existing communication library remains MIT licensed.
+- Home Assistant 2026.9.2 or later is required by this release and is the integration test baseline. The Python library, now maintained in moryoav/py-besen, retains Python 3.12 compatibility.
+- Home Assistant Core code retains its Apache 2.0 license; the communication library in moryoav/py-besen remains MIT licensed.
 
 ## Upgrade notes
 
