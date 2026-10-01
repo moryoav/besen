@@ -6,7 +6,7 @@ This project follows semantic versioning where practical. Tags use a `v` prefix,
 
 The `besen` Python library was developed in this repository until 0.4.8. Its entries remain below, and later library releases are listed in the [py-besen changelog](https://github.com/moryoav/py-besen/blob/main/CHANGELOG.md).
 
-## [Unreleased]
+## [0.5.11] - 2026-10-01 (HACS integration)
 
 ### Fixed
 
@@ -19,6 +19,14 @@ The `besen` Python library was developed in this repository until 0.4.8. Its ent
 - Rename the **Charging status** state `canceled` to `scheduled`, shown as **Scheduled**. The charger reports it while a scheduled start is pending. Automations that use `canceled` need the new value.
 - Show **Scheduled start** and **Charging time limit** only while a schedule is pending or a session is running. The charger keeps reporting them after a schedule is cancelled or a session has finished.
 - Require `besen` 0.4.10 or later for the fixes above.
+
+### Updating
+
+Install the update through HACS and restart Home Assistant, which installs `besen` 0.4.10. Keep the existing Besen entry. If an automation uses the **Charging status** state `canceled`, change it to `scheduled`.
+
+### Validation
+
+- Passed 130 tests and 92 snapshots with 99.80% coverage of the integration, against the published `besen` 0.4.10 package from PyPI, plus Ruff, mypy, Core alignment, and HACS validation.
 
 ## [0.5.10] - 2026-10-01 (HACS integration)
 
