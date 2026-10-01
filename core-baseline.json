@@ -4,7 +4,7 @@
   "pull_request": 180888,
   "dependency_override": {
     "baseline": "besen==0.4.2",
-    "development": "besen>=0.4.8"
+    "development": "besen>=0.4.9"
   },
   "files": {
     "config_flow.py": "9b4f21961b20cfe322ecaad56b3142420a8f5075c894e78c5d03b9e737d8f4d6",
@@ -27,30 +27,50 @@
       "reason": "Restore PIN-only reauthentication and reject PINs with non-ASCII digits."
     },
     "coordinator.py": {
-      "sha256": "51efb6cb6c6b2fb9b0f92b8fa0a8051d207f1d945517e7a043db0cc60c5e0903",
-      "reason": "Trigger runtime reauthentication from the explicit library auth_failed state."
+      "sha256": "cf3dbe9c58e022f788b77ed5841b90aad8218a2de58e13e8789ee90570ae5852",
+      "reason": "Trigger runtime reauthentication from the explicit library auth_failed state, and pass a start time and duration to the start charging command. See docs/scheduled-charging.md."
+    },
+    "icons.json": {
+      "sha256": "ff091d28c8fcc6643f48e02975ec8a78bf23ad0387f1d52f7d1724289d0a5cc7",
+      "reason": "Add the start charging action icon."
     },
     "manifest.json": {
       "sha256": "e24aaa3c93922c4bb3a8732f05dcfb3fdca1690461fca338531aca42300241f7",
       "reason": "Match Core's Platinum quality tier."
     },
     "quality_scale.yaml": {
-      "sha256": "6957c46e7f9a1ccaa942f2c438ca20f9685ba5f75e0f6e486198ade031fb929c",
-      "reason": "Match Core's checklist: reauthentication, command error handling and diagnostics done, reconfiguration and repair issues exempt."
+      "sha256": "583a0ce34ec8b18724cd0aa527f9b1148359da8a937c02500857dc3c26e81dba",
+      "reason": "Match Core's checklist: reauthentication, command error handling and diagnostics done, reconfiguration and repair issues exempt. Mark action setup and action documentation done for the start charging action."
     },
     "sensor.py": {
       "sha256": "037e6ab6d3c8926ed487b63d4407cadecb76897b96c7612aef4ec9b84fa57286",
       "reason": "Add read-only session sensors. See docs/session-sensors.md."
     },
     "strings.json": {
-      "sha256": "b77401000e67921a3e6c46d7df95ab582c419c974ba5bae5b844d9e54e367d04",
-      "reason": "Add the reauthentication form and success message, and name the session sensors."
+      "sha256": "596d7f59ad73288e4e4c3fb42e44be3df1a90d6f76511ab1faec625475ae2d4b",
+      "reason": "Add the reauthentication form and success message, name the session sensors, and describe the start charging action and its start time error."
+    },
+    "switch.py": {
+      "sha256": "32b09adf60798364f83e750101c323fa0a09df9e6bff066914922383a64e376d",
+      "reason": "Add the method behind the start charging action."
+    },
+    "__init__.py": {
+      "sha256": "5a87e47ea21b1316bc28116406daf66bea4dc8a0b8224bb1c6f61b061a4bc66c",
+      "reason": "Register the start charging action when the integration is set up."
     }
   },
   "development_additions": {
     "diagnostics.py": {
       "sha256": "bcacc9a8d73b78b60dc6aaad563ba0956863127da201376a4763da0f0a701a4e",
       "reason": "Add redacted charger diagnostics ahead of a separate Core PR."
+    },
+    "services.py": {
+      "sha256": "66394ba8c2ae095e7558a005922e18c23be749ad0618bd3ba66a2d6206852826",
+      "reason": "Add the start charging action ahead of a Core PR. See docs/scheduled-charging.md."
+    },
+    "services.yaml": {
+      "sha256": "aa572a8b3ab9aec2700b6778b1312c9336ecac2fe7ecf74cdd1c040ae2bd7bda",
+      "reason": "Describe the start charging action's target and fields."
     }
   }
 }
