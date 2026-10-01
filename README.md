@@ -1,7 +1,6 @@
-# Besen for Home Assistant & Python
+# Besen for Home Assistant
 
 [![GitHub Release][release-badge]][release-url]
-[![PyPI][pypi-badge]][pypi-url]
 [![HACS][hacs-badge]][hacs-url]
 [![CI][ci-badge]][ci-url]
 [![License][license-badge]](#attribution-and-license)
@@ -22,7 +21,7 @@ Support ongoing development and maintenance by donating on Ko-fi or sponsoring t
 
 Control and monitor Besen EV chargers locally over Bluetooth Low Energy, without a cloud service.
 
-This repository contains both the **Besen Home Assistant integration**, installable through HACS, and the **`besen` Python package** that handles communication with the charger. The Python package also powers the built-in Besen integration in Home Assistant Core.
+This repository contains the **Besen Home Assistant integration**, installable through HACS. Communication with the charger is handled by the [**`besen` Python package**](https://github.com/moryoav/py-besen), which also powers the built-in Besen integration in Home Assistant Core.
 
 ## Which version should I use?
 
@@ -146,21 +145,15 @@ Confirm that Home Assistant meets the release's minimum version, that `/config/c
 
 ## Python package
 
-The reusable async Python client lives in `src/besen` and is published on [PyPI][pypi-url]. It provides BLE connection management, PIN authentication, typed state updates, and charger commands for applications outside Home Assistant as well.
+The reusable async Python client is developed in [moryoav/py-besen](https://github.com/moryoav/py-besen) and published on [PyPI][pypi-url]. It provides BLE connection management, PIN authentication, typed state updates, and charger commands for applications outside Home Assistant as well.
 
-For a standalone Python application, use **Python 3.12 or newer**:
-
-```bash
-pip install besen
-```
-
-Read the [Python library guide and API reference](https://github.com/moryoav/besen/blob/main/docs/python-library.md) for a working example, lifecycle and control methods, state fields, exceptions, and Bluetooth connection notes. Library capabilities are not a promise that an equivalent Home Assistant entity exists.
+Read its [README](https://github.com/moryoav/py-besen#readme) for installation, a working example, lifecycle and control methods, state fields, exceptions, and Bluetooth connection notes. Library capabilities are not a promise that an equivalent Home Assistant entity exists.
 
 ## Feedback and contributions
 
-For HACS or Python package bugs, feature requests, and charger compatibility reports, [open an issue](https://github.com/moryoav/besen/issues/new/choose). Include your charger model, Home Assistant version where applicable, whether you use Core or HACS, and relevant release versions. Do not include PINs or other private information in reports or logs.
+For HACS bugs, feature requests, and charger compatibility reports, [open an issue](https://github.com/moryoav/besen/issues/new/choose). Include your charger model, Home Assistant version, whether you use Core or HACS, and relevant release versions. Do not include PINs or other private information in reports or logs.
 
-For a problem with the built-in integration, use the issue-reporting link in the [official Besen documentation](https://www.home-assistant.io/integrations/besen/).
+For a problem with the built-in integration, use the issue-reporting link in the [official Besen documentation](https://www.home-assistant.io/integrations/besen/). Report Python package bugs in [moryoav/py-besen](https://github.com/moryoav/py-besen/issues).
 
 Developers can refer to [CONTRIBUTING.md](https://github.com/moryoav/besen/blob/main/CONTRIBUTING.md) and the [Core alignment inventory](https://github.com/moryoav/besen/blob/main/docs/core-alignment.md).
 
@@ -170,13 +163,12 @@ This software controls real electrical equipment and is not a safety controller.
 
 ## Attribution and license
 
-The Python communication library is licensed under [MIT](https://github.com/moryoav/besen/blob/main/LICENSE), with protocol work based on [slespersen/evseMQTT](https://github.com/slespersen/evseMQTT).
+The [Python communication library](https://github.com/moryoav/py-besen) is licensed under MIT, with protocol work based on [slespersen/evseMQTT](https://github.com/slespersen/evseMQTT). The HACS packaging and upgrade adapter in this repository are also licensed under [MIT](https://github.com/moryoav/besen/blob/main/LICENSE).
 
 The Core-derived Home Assistant integration and tests are licensed under [Apache 2.0](https://github.com/moryoav/besen/blob/main/custom_components/besen/LICENSE). See [NOTICE.md](https://github.com/moryoav/besen/blob/main/NOTICE.md) for attribution details.
 
 [release-badge]: https://img.shields.io/github/v/release/moryoav/besen?style=flat-square
 [release-url]: https://github.com/moryoav/besen/releases
-[pypi-badge]: https://img.shields.io/pypi/v/besen?style=flat-square&label=PyPI
 [pypi-url]: https://pypi.org/project/besen/
 [hacs-badge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square
 [hacs-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=moryoav&repository=besen&category=integration

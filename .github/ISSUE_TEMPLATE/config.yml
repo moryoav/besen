@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Python library issue
+    url: https://github.com/moryoav/py-besen/issues
+    about: Bugs and feature requests for the besen Python package belong in its own repository.
   - name: Security issue
     url: https://github.com/moryoav/besen/security/policy
     about: Please follow the security policy and do not open public vulnerability reports.
