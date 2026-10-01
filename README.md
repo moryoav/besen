@@ -119,8 +119,6 @@ Wi-Fi provisioning, PIN/device resets, charging-history downloads, firmware upda
 
 ### Download diagnostics
 
-**Available in HACS releases starting with v0.5.5.**
-
 Open **Settings** > **Devices & services** > **Besen**, open the menu for your charger entry, and select **Download diagnostics**.
 
 The download contains charger model and firmware details, settings, readings, and connection/authentication status. The PIN, Bluetooth address, serial number, and charger names are redacted. Raw command replies and free-text error messages are excluded because they can contain private information.
