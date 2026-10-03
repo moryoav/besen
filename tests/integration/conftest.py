@@ -2,7 +2,6 @@
 
 from collections.abc import Generator
 from datetime import UTC, datetime
-from typing import Any
 from unittest.mock import AsyncMock, Mock, PropertyMock, patch
 
 from besen.models import BesenData, ChargerConfig, ChargerInfo, ChargeStatus
@@ -173,7 +172,7 @@ def mock_besen_client() -> Generator[Mock]:
         client = mock_client.return_value
         _configure_client_mock(client)
 
-        async def async_start_charging(**kwargs: Any) -> None:
+        async def async_start_charging(**kwargs: datetime | int | None) -> None:
             publish_besen_state(client, charger_state(charger_status=True))
 
         async def async_stop_charging() -> None:

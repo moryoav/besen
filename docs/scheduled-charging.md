@@ -12,7 +12,7 @@ The action targets the charger's **Charge** switch.
 | Field | Selector | Meaning |
 | --- | --- | --- |
 | `start` | Date and time | When the charger starts charging, at most 24 hours ahead. A time without a UTC offset is in the Home Assistant time zone. Without it, charging starts now. |
-| `duration` | Duration | How long the charger charges before it ends the session, from 1 minute to 65534 minutes. Without it, there is no time limit. |
+| `duration` | Duration | How long the charger charges before it ends the session, in whole minutes, from 1 minute to 65534 minutes. Without it, there is no time limit. |
 
 ```yaml
 action: besen.start_charging
@@ -28,7 +28,8 @@ The schedule is stored on the charger, which the firmware calls a
 "reservation". The action waits for the charger's reply, like the **Charge**
 switch does:
 
-- A duration outside the supported range is refused before anything is sent.
+- A duration outside the supported range, or one that is not a whole number of
+  minutes, is refused before anything is sent.
 - A start time that is not in the future, or is more than 24 hours ahead, fails
   with a validation error.
 - A rejection by the charger, a lost connection, or a missing reply fails with
@@ -45,7 +46,9 @@ Checked on a three-phase Besen BS20:
   reservation**. The **Scheduled start** and **Charging time limit** sensors
   show the accepted values while the schedule is pending or the session is
   running. See [session sensors](session-sensors.md).
-- Turning the **Charge** switch off cancels a pending schedule.
+- The `switch.turn_off` action on the **Charge** switch cancels a pending
+  schedule. The switch is already off while a start is scheduled, so its toggle
+  on a dashboard cannot send that command.
 - The charger rejects a new start, scheduled or not, while a schedule is pending
   or a session is charging. Cancel the schedule or stop the session first.
 - Charging starts at the scheduled time, and a time-limited session stops by

@@ -112,7 +112,7 @@ The **Start charging** action (`besen.start_charging`) starts charging at a late
 | Field | Purpose |
 | --- | --- |
 | `start` | When the charger starts charging, at most 24 hours ahead. A time without a UTC offset is in your Home Assistant time zone. Leave it out to start now. |
-| `duration` | How long the charger charges before it ends the session, from 1 minute. Leave it out for no time limit. |
+| `duration` | How long the charger charges before it ends the session, in whole minutes, from 1 minute. Leave it out for no time limit. |
 
 ```yaml
 action: besen.start_charging
@@ -124,7 +124,7 @@ data:
     hours: 3
 ```
 
-The schedule is stored on the charger, which holds one schedule at a time and accepts it with or without a vehicle connected. While it is pending, the **Charge** switch stays off, **Charging status** shows **Scheduled**, and the **Scheduled start** and **Charging time limit** sensors show what the charger accepted. Turn the **Charge** switch off to cancel it.
+The schedule is stored on the charger, which holds one schedule at a time and accepts it with or without a vehicle connected. While it is pending, the **Charge** switch stays off, **Charging status** shows **Scheduled**, and the **Scheduled start** and **Charging time limit** sensors show what the charger accepted. To cancel it, use the `switch.turn_off` action on the **Charge** switch. The switch is already off while a start is scheduled, so its toggle on a dashboard cannot send that command.
 
 The action fails with an error when the start time is not in the future, is more than 24 hours ahead, or the charger rejects the request. The charger rejects a new start while a schedule is pending or a session is charging, so cancel or stop first. See [scheduled charging](docs/scheduled-charging.md).
 
