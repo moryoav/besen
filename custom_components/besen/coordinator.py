@@ -100,17 +100,14 @@ class BesenCoordinator(DataUpdateCoordinator[BesenData]):
     ) -> None:
         """Start charging, optionally at a later time or for a limited time."""
 
+        command = self.client.async_start_charging(
+            start=None if start is None else dt_util.as_utc(start),
+            duration_minutes=(
+                None if duration is None else int(duration.total_seconds() // 60)
+            ),
+        )
         try:
-            await self._async_run_command(
-                self.client.async_start_charging(
-                    start=None if start is None else dt_util.as_utc(start),
-                    duration_minutes=(
-                        None
-                        if duration is None
-                        else int(duration.total_seconds() // 60)
-                    ),
-                )
-            )
+            await self._async_run_command(command)
         except ValueError as err:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,

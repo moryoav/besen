@@ -6,6 +6,14 @@ This project follows semantic versioning where practical. Tags use a `v` prefix,
 
 The `besen` Python library was developed in this repository until 0.4.8. Its entries remain below, and later library releases are listed in the [py-besen changelog](https://github.com/moryoav/py-besen/blob/main/CHANGELOG.md).
 
+## [Unreleased]
+
+### Changed
+
+- The **Start charging** action accepts a `duration` in whole minutes only. The duration field no longer offers seconds, and a duration with seconds is rejected instead of being cut to whole minutes.
+- Document that a scheduled start is cancelled with the `switch.turn_off` action on the **Charge** switch. The switch is already off while a start is scheduled, so its toggle on a dashboard cannot cancel it.
+- Match the action code and tests to the Home Assistant Core pull request: string enums for the action name and its fields. The action itself and its fields are unchanged.
+
 ## [0.5.11] - 2026-10-01 (HACS integration)
 
 ### Fixed

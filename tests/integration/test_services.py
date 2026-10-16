@@ -1,7 +1,6 @@
 """Tests for the Besen services."""
 
 from datetime import UTC, datetime
-from typing import Any
 from unittest.mock import Mock
 
 from besen.exceptions import CommandFailed
@@ -14,40 +13,43 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from custom_components.besen.const import DOMAIN
-from custom_components.besen.services import (
-    ATTR_DURATION,
-    ATTR_START,
-    SERVICE_START_CHARGING,
-)
+from custom_components.besen.services import BesenService, BesenServiceArgument
 
 from .conftest import setup_integration
 
 ENTITY_ID = "switch.garage_charge"
+START = "2026-10-01T22:00:00+00:00"
+START_UTC = datetime(2026, 10, 1, 22, 0, tzinfo=UTC)
 
 
 @pytest.mark.parametrize(
     ("service_data", "start", "duration_minutes"),
     [
-        ({}, None, None),
-        (
-            {ATTR_START: "2026-10-01T22:00:00+00:00"},
-            datetime(2026, 10, 1, 22, 0, tzinfo=UTC),
-            None,
+        pytest.param({}, None, None, id="now"),
+        pytest.param(
+            {BesenServiceArgument.START: START}, START_UTC, None, id="scheduled"
         ),
-        (
-            # A time without an offset is in the Home Assistant time zone.
-            {ATTR_START: "2026-10-01 15:00:00"},
-            datetime(2026, 10, 1, 22, 0, tzinfo=UTC),
+        # A time without an offset is in the Home Assistant time zone.
+        pytest.param(
+            {BesenServiceArgument.START: "2026-10-01 15:00:00"},
+            START_UTC,
             None,
+            id="local_time",
         ),
-        ({ATTR_DURATION: {"hours": 1, "minutes": 30}}, None, 90),
-        (
+        pytest.param(
+            {BesenServiceArgument.DURATION: {"hours": 1, "minutes": 30}},
+            None,
+            90,
+            id="time_limited",
+        ),
+        pytest.param(
             {
-                ATTR_START: "2026-10-01T22:00:00+00:00",
-                ATTR_DURATION: {"minutes": 45},
+                BesenServiceArgument.START: START,
+                BesenServiceArgument.DURATION: {"minutes": 45},
             },
-            datetime(2026, 10, 1, 22, 0, tzinfo=UTC),
+            START_UTC,
             45,
+            id="scheduled_and_time_limited",
         ),
     ],
 )
@@ -55,7 +57,7 @@ async def test_start_charging(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_besen_client: Mock,
-    service_data: dict[str, Any],
+    service_data: dict[str, str | dict[str, int]],
     start: datetime | None,
     duration_minutes: int | None,
 ) -> None:
@@ -65,7 +67,7 @@ async def test_start_charging(
 
     await hass.services.async_call(
         DOMAIN,
-        SERVICE_START_CHARGING,
+        BesenService.START_CHARGING,
         {ATTR_ENTITY_ID: ENTITY_ID, **service_data},
         blocking=True,
     )
@@ -77,7 +79,11 @@ async def test_start_charging(
 
 @pytest.mark.parametrize(
     "duration",
-    [{"seconds": 59}, {"minutes": 65535}],
+    [
+        pytest.param({"seconds": 59}, id="too_short"),
+        pytest.param({"minutes": 65535}, id="too_long"),
+        pytest.param({"minutes": 1, "seconds": 30}, id="not_whole_minutes"),
+    ],
 )
 async def test_start_charging_invalid_duration(
     hass: HomeAssistant,
@@ -92,8 +98,8 @@ async def test_start_charging_invalid_duration(
     with pytest.raises(probatio.Invalid):
         await hass.services.async_call(
             DOMAIN,
-            SERVICE_START_CHARGING,
-            {ATTR_ENTITY_ID: ENTITY_ID, ATTR_DURATION: duration},
+            BesenService.START_CHARGING,
+            {ATTR_ENTITY_ID: ENTITY_ID, BesenServiceArgument.DURATION: duration},
             blocking=True,
         )
 
@@ -103,8 +109,18 @@ async def test_start_charging_invalid_duration(
 @pytest.mark.parametrize(
     ("side_effect", "exception", "translation_key"),
     [
-        (ValueError("in the past"), ServiceValidationError, "invalid_start"),
-        (CommandFailed("rejected"), HomeAssistantError, "command_failed"),
+        pytest.param(
+            ValueError("in the past"),
+            ServiceValidationError,
+            "invalid_start",
+            id="invalid_start",
+        ),
+        pytest.param(
+            CommandFailed("rejected"),
+            HomeAssistantError,
+            "command_failed",
+            id="charger_rejection",
+        ),
     ],
 )
 async def test_start_charging_errors(
@@ -124,8 +140,8 @@ async def test_start_charging_errors(
     with pytest.raises(exception) as err:
         await hass.services.async_call(
             DOMAIN,
-            SERVICE_START_CHARGING,
-            {ATTR_ENTITY_ID: ENTITY_ID, ATTR_START: "2026-10-01T22:00:00+00:00"},
+            BesenService.START_CHARGING,
+            {ATTR_ENTITY_ID: ENTITY_ID, BesenServiceArgument.START: START},
             blocking=True,
         )
 

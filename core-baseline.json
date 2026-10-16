@@ -27,7 +27,7 @@
       "reason": "Restore PIN-only reauthentication and reject PINs with non-ASCII digits."
     },
     "coordinator.py": {
-      "sha256": "cf3dbe9c58e022f788b77ed5841b90aad8218a2de58e13e8789ee90570ae5852",
+      "sha256": "b80b05be8c6dd898adf47e76d97d925105cb5ec9f39ab4065c53f9238eff6758",
       "reason": "Trigger runtime reauthentication from the explicit library auth_failed state, and pass a start time and duration to the start charging command. See docs/scheduled-charging.md."
     },
     "icons.json": {
@@ -65,11 +65,11 @@
       "reason": "Add redacted charger diagnostics ahead of a separate Core PR."
     },
     "services.py": {
-      "sha256": "66394ba8c2ae095e7558a005922e18c23be749ad0618bd3ba66a2d6206852826",
+      "sha256": "8a09b959cfbfc203c08703e66aa8532b7ecee3b8f2cc406f81982a47bb01c0f2",
       "reason": "Add the start charging action ahead of a Core PR. See docs/scheduled-charging.md."
     },
     "services.yaml": {
-      "sha256": "aa572a8b3ab9aec2700b6778b1312c9336ecac2fe7ecf74cdd1c040ae2bd7bda",
+      "sha256": "f3e485935b6cddc7fd980cf9730abdebe786421242f5e4820618e81e30573e78",
       "reason": "Describe the start charging action's target and fields."
     }
   }
