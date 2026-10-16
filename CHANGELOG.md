@@ -8,11 +8,25 @@ The `besen` Python library was developed in this repository until 0.4.8. Its ent
 
 ## [Unreleased]
 
+## [0.5.12] - 2026-10-16 (HACS integration)
+
+### Fixed
+
+- Reject durations containing seconds instead of silently shortening them to whole minutes. The **Start charging** duration selector now accepts whole minutes only.
+
 ### Changed
 
-- The **Start charging** action accepts a `duration` in whole minutes only. The duration field no longer offers seconds, and a duration with seconds is rejected instead of being cut to whole minutes.
-- Document that a scheduled start is cancelled with the `switch.turn_off` action on the **Charge** switch. The switch is already off while a start is scheduled, so its toggle on a dashboard cannot cancel it.
-- Match the action code and tests to the Home Assistant Core pull request: string enums for the action name and its fields. The action itself and its fields are unchanged.
+- Align the action code and tests with the implementation merged in [Home Assistant Core #184113](https://github.com/home-assistant/core/pull/184113), including string enums for the action name and fields.
+- Explain that a pending scheduled start is cancelled with the `switch.turn_off` action on the **Charge** switch. The switch is already off while a start is scheduled, so its dashboard toggle cannot cancel it.
+
+### Updating
+
+Update through HACS and restart Home Assistant. Keep the existing Besen entry. If an automation supplies seconds in `duration`, change it to a whole number of minutes. The library requirement remains `besen>=0.4.10`.
+
+### Validation
+
+- Passed 131 tests and 92 snapshots with 99.80% integration coverage against Home Assistant 2026.9.2 and the published `besen` 0.4.10 package, plus Ruff, mypy, and Core alignment.
+- Known CI limitation: the published Hassfest image still checks against `besen==0.4.7`, while the integration requires `besen>=0.4.10`. The same failure affects 0.5.11. This dependency check is expected to pass once the official image includes Core's newer library version.
 
 ## [0.5.11] - 2026-10-01 (HACS integration)
 
