@@ -68,6 +68,9 @@ any scheduled start with the vendor app on a real charger.
 HACS 0.5.9 adds these sensors. HACS 0.5.13 requires library 0.4.11 or later,
 which clears inactive schedule values and ignores stale session reports.
 The integration reads these normalized values directly.
+HACS 0.5.14 requires library 0.5.0 or later and reads its corrected `Scheduled`
+charging status directly; the Home Assistant sensor still reports `scheduled`.
+Update through HACS and restart Home Assistant to upgrade both together.
 For development and tests, install the dependencies as described in
 [CONTRIBUTING.md](../CONTRIBUTING.md#development-setup).
 
