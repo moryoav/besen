@@ -65,8 +65,9 @@ any scheduled start with the vendor app on a real charger.
 
 ## Development notes
 
-HACS 0.5.9 adds these sensors. Library 0.4.8 provides the fields, and the
-custom integration requires it.
+HACS 0.5.9 adds these sensors. HACS 0.5.13 requires library 0.4.11 or later,
+which clears inactive schedule values and ignores stale session reports.
+The integration reads these normalized values directly.
 For development and tests, install the dependencies as described in
 [CONTRIBUTING.md](../CONTRIBUTING.md#development-setup).
 

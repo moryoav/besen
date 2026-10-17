@@ -8,6 +8,23 @@ The `besen` Python library was developed in this repository until 0.4.8. Its ent
 
 ## [Unreleased]
 
+## [0.5.13] - 2026-10-17 (HACS integration)
+
+### Changed
+
+- Require `besen` 0.4.11 or later for schedule state handling, including inactive values and stale session reports.
+- Read **Scheduled start** and **Charging time limit** directly from the library and remove the integration's separate schedule filter, matching [Home Assistant Core #186783](https://github.com/home-assistant/core/pull/186783).
+
+### Updating
+
+Update through HACS and restart Home Assistant. The library is upgraded if needed. Keep the existing Besen entry and automations.
+
+### Validation
+
+- Passed 131 tests and 92 snapshots with 99.80% integration coverage against Home Assistant 2026.9.2 and the published `besen` 0.4.11 package, plus Ruff, mypy, compilation, and Core alignment.
+- Verified synthetic packet-to-sensor flows in both report orders, including cancellation, completion, fault recovery, late reports, and a new schedule. No physical charger was operated.
+- Known CI limitation: the published Hassfest image still checks against `besen==0.4.7`, while the integration requires `besen>=0.4.11`. This is the same release-image mismatch affecting 0.5.12. The validator remains enabled.
+
 ## [0.5.12] - 2026-10-16 (HACS integration)
 
 ### Fixed

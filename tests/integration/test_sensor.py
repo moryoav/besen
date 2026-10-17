@@ -276,12 +276,36 @@ async def test_optional_session_sensors_disabled_by_default(
 
 @pytest.mark.usefixtures("entity_registry_enabled_by_default")
 @pytest.mark.parametrize(
-    ("current_state", "shown"),
+    (
+        "current_state",
+        "scheduled_start",
+        "charging_time_limit",
+        "expected_start",
+        "expected_limit",
+    ),
     [
-        ("Charging Reservation", True),
-        ("Charging", True),
-        ("Ready to charge", False),
-        ("Completed", False),
+        pytest.param(
+            "Charging Reservation",
+            datetime(2026, 10, 1, 22, 0, tzinfo=UTC),
+            30,
+            "2026-10-01T22:00:00+00:00",
+            "30",
+            id="pending",
+        ),
+        pytest.param(
+            "Charging",
+            datetime(2026, 10, 1, 22, 0, tzinfo=UTC),
+            30,
+            "2026-10-01T22:00:00+00:00",
+            "30",
+            id="running",
+        ),
+        pytest.param(
+            "Ready to charge", None, None, STATE_UNKNOWN, STATE_UNKNOWN, id="canceled"
+        ),
+        pytest.param(
+            "Completed", None, None, STATE_UNKNOWN, STATE_UNKNOWN, id="completed"
+        ),
     ],
 )
 async def test_schedule_sensors_follow_the_schedule(
@@ -289,9 +313,12 @@ async def test_schedule_sensors_follow_the_schedule(
     mock_config_entry: MockConfigEntry,
     mock_besen_client: Mock,
     current_state: str,
-    shown: bool,
+    scheduled_start: datetime | None,
+    charging_time_limit: int | None,
+    expected_start: str,
+    expected_limit: str,
 ) -> None:
-    """Test a cancelled or finished schedule is no longer reported."""
+    """Test schedule sensors expose the library's normalized values."""
 
     await setup_integration(hass, mock_config_entry, [Platform.SENSOR])
 
@@ -299,23 +326,18 @@ async def test_schedule_sensors_follow_the_schedule(
         mock_besen_client,
         charger_state(
             charge=ChargeStatus(
-                charging_status="Cancel",
                 current_state=current_state,
-                scheduled_start=datetime(2026, 10, 1, 22, 0, tzinfo=UTC),
-                charging_time_limit=30,
+                scheduled_start=scheduled_start,
+                charging_time_limit=charging_time_limit,
             )
         ),
     )
     await hass.async_block_till_done()
 
-    assert (state := hass.states.get(CHARGING_STATUS_ENTITY_ID)) is not None
-    assert state.state == "scheduled"
-    for entity_id in (
-        "sensor.garage_scheduled_start",
-        "sensor.garage_charging_time_limit",
-    ):
-        assert (state := hass.states.get(entity_id)) is not None
-        assert (state.state != STATE_UNKNOWN) is shown
+    assert (state := hass.states.get("sensor.garage_scheduled_start")) is not None
+    assert state.state == expected_start
+    assert (state := hass.states.get("sensor.garage_charging_time_limit")) is not None
+    assert state.state == expected_limit
 
 
 @pytest.mark.parametrize(("phases", "expected"), [(1, False), (3, True)])

@@ -4,7 +4,7 @@
   "pull_request": 180888,
   "dependency_override": {
     "baseline": "besen==0.4.2",
-    "development": "besen>=0.4.10"
+    "development": "besen>=0.4.11"
   },
   "files": {
     "config_flow.py": "9b4f21961b20cfe322ecaad56b3142420a8f5075c894e78c5d03b9e737d8f4d6",
@@ -43,8 +43,8 @@
       "reason": "Match Core's checklist: reauthentication, command error handling and diagnostics done, reconfiguration and repair issues exempt. Mark action setup and action documentation done for the start charging action."
     },
     "sensor.py": {
-      "sha256": "fee2828fc773c5a9ce37405838d93cfbd13cd5703ebfdc632c814d35b9322e72",
-      "reason": "Add read-only session sensors, show the schedule sensors only while a schedule is pending or a session is running, and rename the charging status state canceled to scheduled. See docs/session-sensors.md."
+      "sha256": "f0c9a5678cde5248dea24a0cb98bf94267f0b30c56a212065e7efe8db84e21d4",
+      "reason": "Add read-only session sensors and rename the charging status state canceled to scheduled. Read normalized schedule values directly from besen 0.4.11 or later. See docs/session-sensors.md."
     },
     "strings.json": {
       "sha256": "1092fb89c6b860a389af76c5bb9e8dd7dcf8a7512612a095395b118641402118",
