@@ -219,5 +219,11 @@ It keeps every other requirement and `package_constraints.txt` unchanged, and
 restores the original catalog after validation. The shipped integration manifest
 is never modified by this check. Compatible future Core pins are kept as-is.
 
+The official dependency check currently normalizes only exact pins. A narrow
+adapter supplies the package name for the validated Besen minimum if needed.
+It delegates all other input to the official parser, retains every validation
+and installation check, and restores the original parser afterwards. If the
+official parser supports the minimum already, it is kept unchanged.
+
 Regression tests cover ownership checks, unchanged constraints, catalog
-restoration after failure, and rejected manifest formats.
+and parser restoration after failure, and rejected manifest formats.

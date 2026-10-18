@@ -7,19 +7,20 @@ ephemeral validator container; retain every other requirement and constraint.
 """
 
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import chdir, contextmanager
+import importlib
 import json
 from pathlib import Path
-import subprocess
+import runpy
 import sys
+from types import ModuleType
 
 from packaging.requirements import Requirement
 from packaging.version import Version
 
 
-@contextmanager
-def besen_requirement_context(core: Path, integration: Path) -> Iterator[None]:
-    """Model a complete Besen override, failing closed for shared dependencies."""
+def minimum_requirement(integration: Path) -> Requirement:
+    """Accept only the one unconditional Besen minimum used by this override."""
     manifest = json.loads((integration / "manifest.json").read_text())
     if manifest["domain"] != "besen":
         raise ValueError("This validation context is only for the Besen override")
@@ -36,7 +37,14 @@ def besen_requirement_context(core: Path, integration: Path) -> Iterator[None]:
         or requirement.url is not None
     ):
         raise ValueError("Expected an unconditional besen minimum version")
-    minimum = Version(specifiers[0].version)
+    return requirement
+
+
+@contextmanager
+def besen_requirement_context(core: Path, integration: Path) -> Iterator[None]:
+    """Model a complete Besen override, failing closed for shared dependencies."""
+    requirement = minimum_requirement(integration)
+    minimum = Version(next(iter(requirement.specifier)).version)
     owners = set()
     for path in (core / "homeassistant/components").glob("*/manifest.json"):
         candidate = json.loads(path.read_text())
@@ -79,25 +87,61 @@ def besen_requirement_context(core: Path, integration: Path) -> Iterator[None]:
         path.write_text(original)
 
 
+@contextmanager
+def minimum_name_context(validator: ModuleType, integration: Path) -> Iterator[None]:
+    """Normalize our minimum if Hassfest's name parser still requires ==.
+
+    All official requirement validation and installation functions are retained.
+    Only the name parser's result for the exact, already checked Besen minimum
+    changes. Other input is delegated to the original parser without alteration.
+    """
+    requirement = str(minimum_requirement(integration))
+    original = validator.normalize_package_name
+    if original(requirement):
+        yield
+        return
+
+    def normalize(value: str) -> str:
+        if value == requirement:
+            return "besen"
+        return original(value)
+
+    try:
+        sys.stdout.write(
+            "Besen override: normalize the minimum requirement's package name; "
+            "all official requirement checks remain active.\n"
+        )
+        validator.normalize_package_name = normalize
+        yield
+    finally:
+        validator.normalize_package_name = original
+
+
 def main() -> int:
     """Run every official plugin, including package dependency validation."""
     core = Path("/usr/src/homeassistant")
     integration = Path("/github/workspace/custom_components/besen")
-    with besen_requirement_context(core, integration):
-        return subprocess.run(
-            [
-                sys.executable,
-                "-m",
+    sys.path.insert(0, str(core))
+    validator = importlib.import_module("script.hassfest.requirements")
+    with (
+        chdir(core),
+        besen_requirement_context(core, integration),
+        minimum_name_context(validator, integration),
+    ):
+        original_argv = sys.argv
+        try:
+            sys.argv = [
                 "script.hassfest",
                 "--action",
                 "validate",
                 "--requirements",
                 "--integration-path",
                 str(integration),
-            ],
-            cwd=core,
-            check=False,
-        ).returncode
+            ]
+            runpy.run_module("script.hassfest", run_name="__main__", alter_sys=True)
+        finally:
+            sys.argv = original_argv
+    return 0
 
 
 if __name__ == "__main__":

@@ -3,12 +3,16 @@
 import json
 from pathlib import Path
 import runpy
+from types import ModuleType
+from unittest.mock import Mock
 
 import pytest
 
-CONTEXT = runpy.run_path(
+HELPERS = runpy.run_path(
     str(Path(__file__).resolve().parents[1] / "scripts/run_hassfest.py")
-)["besen_requirement_context"]
+)
+CONTEXT = HELPERS["besen_requirement_context"]
+NAME_CONTEXT = HELPERS["minimum_name_context"]
 
 
 @pytest.fixture
@@ -93,3 +97,31 @@ def test_unexpected_manifest_is_rejected(context, domain, requirements):
     )
     with pytest.raises(ValueError), CONTEXT(core, integration):
         pytest.fail("Unexpected manifest was accepted")
+
+
+@pytest.mark.parametrize("error", [False, True])
+def test_minimum_name_adapter_delegates_other_input_and_restores(context, error):
+    _, integration = context
+    validator = ModuleType("validator")
+    original = Mock(side_effect=lambda value: "other" if "==" in value else "")
+    validator.normalize_package_name = original
+    try:
+        with NAME_CONTEXT(validator, integration):
+            assert validator.normalize_package_name("besen>=0.6.0") == "besen"
+            assert validator.normalize_package_name("other==1.2.3") == "other"
+            assert validator.normalize_package_name("other>=1") == ""
+            assert validator.normalize_package_name("besen>=0.6.1") == ""
+            if error:
+                raise RuntimeError("validator failed")
+    except RuntimeError:
+        assert error
+    assert validator.normalize_package_name is original
+
+
+def test_compatible_official_name_parser_is_kept(context):
+    _, integration = context
+    validator = ModuleType("validator")
+    original = Mock(return_value="besen")
+    validator.normalize_package_name = original
+    with NAME_CONTEXT(validator, integration):
+        assert validator.normalize_package_name is original
