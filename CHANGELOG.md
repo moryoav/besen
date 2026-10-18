@@ -8,6 +8,17 @@ The `besen` Python library was developed in this repository until 0.4.8. Its ent
 
 ## [Unreleased]
 
+## [0.5.15] - 2026-10-18 (HACS integration)
+
+### Changed
+
+- Require `besen` 0.6.1 or later as the library foundation for local Wi-Fi and UDP support. Keep the current HACS Bluetooth setup, entities and controls.
+- Validate the complete Besen custom override with the official Hassfest image, including package checks. Model only its exclusive `besen` dependency separately from the replaced built-in integration and normalize the minimum requirement for the official dependency checker; retain all validation rules, other Core requirements and package constraints, with regression coverage for shared dependencies and context restoration.
+
+### Validation
+
+- Pass 143 tests and 93 snapshots with 99.80% integration coverage against Home Assistant 2026.9.2, plus Ruff, mypy and Core alignment.
+
 ## [0.5.14] - 2026-10-17 (HACS integration)
 
 ### Changed

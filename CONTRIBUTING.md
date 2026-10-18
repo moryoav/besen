@@ -203,3 +203,32 @@ format.
 
 Please be respectful, constructive, and patient. This project is intended to
 help Home Assistant users control their own chargers safely and reliably.
+
+## Hassfest and the built-in Besen override
+
+The HACS integration replaces built-in Besen and owns its `besen` library
+requirement. The published Hassfest image can retain an older built-in pin even
+after Core updates. `scripts/run_hassfest.py` uses the official image and all its
+plugins, including package validation, with a temporary validation context for
+that exclusive dependency.
+
+The context changes only the `besen` line in the container's
+`requirements_all.txt` when the built-in pin is older than the HACS minimum. It
+fails if another Core integration or Home Assistant itself uses that dependency.
+It keeps every other requirement and `package_constraints.txt` unchanged, and
+restores the original catalog after validation. The shipped integration manifest
+is never modified by this check. Compatible future Core pins are kept as-is.
+
+The official dependency check currently normalizes only exact pins. A narrow
+adapter supplies the package name for the validated Besen minimum if needed.
+It delegates all other input to the official parser, retains every validation
+and installation check, and restores the original parser afterwards. If the
+official parser supports the minimum already, it is kept unchanged.
+
+The container's Home Assistant wheel index may not mirror a new Besen release
+yet. The initial package installation considers both that official index and
+PyPI, retaining Home Assistant's package constraints. Installation errors are
+shown directly before the official dependency validation runs.
+
+Regression tests cover ownership checks, unchanged constraints, catalog
+and parser restoration after failure, and rejected manifest formats.
