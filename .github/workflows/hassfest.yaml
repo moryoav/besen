@@ -14,4 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: home-assistant/actions/hassfest@master
+      - name: Validate the complete Besen override
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/github/workspace" \
+            --entrypoint python3 \
+            ghcr.io/home-assistant/hassfest \
+            /github/workspace/scripts/run_hassfest.py
