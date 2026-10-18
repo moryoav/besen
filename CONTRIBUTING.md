@@ -225,5 +225,10 @@ It delegates all other input to the official parser, retains every validation
 and installation check, and restores the original parser afterwards. If the
 official parser supports the minimum already, it is kept unchanged.
 
+The container's Home Assistant wheel index may not mirror a new Besen release
+yet. The initial package installation considers both that official index and
+PyPI, retaining Home Assistant's package constraints. Installation errors are
+shown directly before the official dependency validation runs.
+
 Regression tests cover ownership checks, unchanged constraints, catalog
 and parser restoration after failure, and rejected manifest formats.

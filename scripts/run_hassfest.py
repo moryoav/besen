@@ -131,7 +131,17 @@ def main() -> int:
     ):
         # Keep the installer's error visible; Hassfest otherwise discards stderr.
         subprocess.run(
-            ["uv", "pip", "install", "--quiet", str(minimum_requirement(integration))],
+            [
+                "uv",
+                "pip",
+                "install",
+                "--quiet",
+                "--index-strategy",
+                "unsafe-best-match",
+                "--constraint",
+                str(core / "homeassistant/package_constraints.txt"),
+                str(minimum_requirement(integration)),
+            ],
             check=True,
         )
         original_argv = sys.argv
