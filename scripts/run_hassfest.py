@@ -12,6 +12,7 @@ import importlib
 import json
 from pathlib import Path
 import runpy
+import subprocess
 import sys
 from types import ModuleType
 
@@ -128,6 +129,11 @@ def main() -> int:
         besen_requirement_context(core, integration),
         minimum_name_context(validator, integration),
     ):
+        # Keep the installer's error visible; Hassfest otherwise discards stderr.
+        subprocess.run(
+            ["uv", "pip", "install", "--quiet", str(minimum_requirement(integration))],
+            check=True,
+        )
         original_argv = sys.argv
         try:
             sys.argv = [
