@@ -8,6 +8,24 @@ The `besen` Python library was developed in this repository until 0.4.8. Its ent
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-19 (HACS integration)
+
+### Added
+
+- Add LAN setup with the charger's IP address or hostname and 6-digit PIN, using the published `besen` 0.6.1 library and the existing entities and controls.
+- Add Reconfigure choices for LAN and Bluetooth, verifying the new connection before saving and preserving existing entity IDs and history. Restore the previous connection after failed or cancelled validation.
+- Share one UDP listener between LAN chargers and setup flows, route by serial and close the listener after its final user unloads. Reject duplicate charger identities and redact LAN addresses in diagnostics.
+
+### Updating
+
+Update through HACS and restart Home Assistant. Keep the existing Besen entry. To use LAN, the charger must already be connected to Wi-Fi; select **Reconfigure** > **Use LAN** and enter its address and PIN. Allow inbound UDP 28376 to Home Assistant and outbound UDP to the charger, normally 7248. See [LAN setup](docs/lan.md).
+
+Only the selected transport is active. Bluetooth fallback and Wi-Fi credential provisioning are not included in this release.
+
+### Validation
+
+- Pass 173 tests and 93 snapshots with 98.76% integration coverage against Home Assistant 2026.9.2 and the published `besen` 0.6.1 package, plus Ruff, mypy and Core alignment. Cover transport cancellation, failed verification, shared listener cleanup, serial checks and preservation of entity and device IDs.
+
 ## [0.5.15] - 2026-10-18 (HACS integration)
 
 ### Changed

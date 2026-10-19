@@ -2,9 +2,11 @@
 
 ## Baseline
 
-HACS 0.5.0 aligns with Home Assistant Core commit `1d38f3627ba11a1951784d93eb9f1ae019bd547e`, merged in [PR #180888](https://github.com/home-assistant/core/pull/180888). This is the latest merged Besen implementation, including the hardware compatibility, charging-current, status-sensor, and temperature-display changes. It is not limited to the current Home Assistant stable release.
+HACS 0.6.0 records Home Assistant Core commit `51489b4f27af336736036bb3d6393cdf08b658e0`, merged in [PR #187382](https://github.com/home-assistant/core/pull/187382), as its baseline. It includes the published `besen` 0.6.1 dependency, scheduled charging, diagnostics and session sensors. LAN runtime and verified transport reconfiguration are documented development differences for this HACS release. `core-baseline.json` pins every accepted file and each difference by checksum.
 
 ## Alignment inventory
+
+LAN changes in 0.6.0 cover transport setup, configuration forms, shared listener lifecycle, serial identity and host redaction. They do not include Wi-Fi credential provisioning, automatic Bluetooth fallback or an Active connection sensor. The stable-version `StateType` import and manifest metadata are also recorded explicitly in the inventory. See [LAN setup](lan.md).
 
 | Area | Previous HACS 0.4.2 | Core baseline and alignment |
 | --- | --- | --- |
