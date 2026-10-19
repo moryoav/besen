@@ -19,7 +19,7 @@ Support ongoing development and maintenance by donating on Ko-fi or sponsoring t
 
 ---
 
-Control and monitor Besen EV chargers locally over Bluetooth Low Energy, without a cloud service.
+Control and monitor Besen EV chargers locally over Bluetooth Low Energy or your LAN, without a cloud service.
 
 This repository contains the **Besen Home Assistant integration**, installable through HACS. Communication with the charger is handled by the [**`besen` Python package**](https://github.com/moryoav/py-besen), which also powers the built-in Besen integration in Home Assistant Core.
 
@@ -40,9 +40,9 @@ The project has been verified with the **Besen BS20** and supports single-phase 
 
 Before setup, have:
 
-- The charger's **6-digit Bluetooth PIN**.
-- A supported Bluetooth adapter or an **ESPHome Bluetooth proxy with active connections enabled**, within range of the charger.
-- A free Bluetooth connection to the charger. Disconnect any phone app, MQTT bridge, or other client already connected to it. Each charger uses one active connection slot.
+- The charger's **6-digit PIN**.
+- For Bluetooth: a supported Bluetooth adapter or an **ESPHome Bluetooth proxy with active connections enabled**, within range of the charger. Disconnect any phone app, MQTT bridge, or other client already connected to it.
+- For LAN: a charger already connected to Wi-Fi, its IP address or hostname, and UDP connectivity between the charger and Home Assistant. A Bluetooth adapter is not needed for LAN control.
 
 ## Installation
 
@@ -69,7 +69,7 @@ Install and configure [HACS](https://www.hacs.xyz/docs/use/) first, then add thi
 1. Click the button above and add/open **Besen** in HACS. Alternatively, open **HACS** > **⋮** > **Custom repositories**, add `https://github.com/moryoav/besen`, and select type **Integration**.
 2. Find **Besen** in HACS and download the latest release.
 3. **Restart Home Assistant.**
-4. For a new setup, click the button below or open **Settings** > **Devices & services** > **Add integration** > **Besen**. Select the discovered charger and enter its PIN.
+4. For a new setup, click the button below or open **Settings** > **Devices & services** > **Add integration** > **Besen**. Select a discovered Bluetooth charger or enter the address of a charger already connected to your LAN, then enter its PIN.
 
 [![Add Besen to Home Assistant][ha-install-badge]][ha-install-url]
 
@@ -81,6 +81,14 @@ Install and configure [HACS](https://www.hacs.xyz/docs/use/) first, then add thi
 Download a release from [GitHub Releases][release-url], and copy its `custom_components/besen` directory into your Home Assistant configuration directory as `/config/custom_components/besen`. The file `/config/custom_components/besen/manifest.json` must exist. Restart Home Assistant, then complete setup as above. Update this copy manually when installing a newer release.
 
 </details>
+
+## LAN setup and changing the connection
+
+For an existing charger, open **Settings** > **Devices & services** > **Besen** > the entry's **⋮** menu > **Reconfigure** > **Use LAN**. Enter its IP address or hostname and the same 6-digit charger PIN. Home Assistant checks authenticated status and a heartbeat before saving the new connection. The existing entry, entities, history and automations are kept. Use **Reconfigure** > **Use Bluetooth** to switch back when a Bluetooth address is already saved.
+
+The charger must already be connected to Wi-Fi, for example through its mobile app. This release does not collect or change your Wi-Fi network name or password. Allow inbound UDP **28376** to Home Assistant and outbound UDP to the charger, normally **7248**. A DHCP reservation is recommended. Container networking, VLANs and firewalls must allow replies and charger announcements to reach Home Assistant. See [LAN setup and troubleshooting](docs/lan.md).
+
+Each charger uses the selected transport only. A LAN outage makes its entities unavailable while LAN reconnects. Switching to Bluetooth is manual in this release.
 
 ## Features
 
@@ -128,7 +136,7 @@ The schedule is stored on the charger, which holds one schedule at a time and ac
 
 The action fails with an error when the start time is not in the future, is more than 24 hours ahead, or the charger rejects the request. The charger rejects a new start while a schedule is pending or a session is charging, so cancel or stop first. See [scheduled charging](docs/scheduled-charging.md).
 
-Updates arrive through local Bluetooth notifications. The integration keeps a connection open and reconnects when needed. Entities become `unavailable` while disconnected or unauthenticated; missing or unsupported readings appear as `unknown`.
+Updates arrive through local Bluetooth notifications or LAN UDP messages, depending on the selected connection. The integration reconnects when needed. Entities become `unavailable` while disconnected or unauthenticated; missing or unsupported readings appear as `unknown`.
 
 Wi-Fi provisioning, PIN/device resets, charging-history downloads, firmware updates, and safety-certified load balancing are not provided by this integration.
 

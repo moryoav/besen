@@ -17,6 +17,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
+from .lan import async_release_udp_hub
 
 if TYPE_CHECKING:
     from . import BesenConfigEntry
@@ -32,6 +33,8 @@ class BesenCoordinator(DataUpdateCoordinator[BesenData]):
         hass: HomeAssistant,
         config_entry: BesenConfigEntry,
         client: BesenClient,
+        *,
+        uses_lan: bool = False,
     ) -> None:
         """Initialize the coordinator."""
 
@@ -45,6 +48,7 @@ class BesenCoordinator(DataUpdateCoordinator[BesenData]):
         self._remove_listener: Callable[[], None] | None = None
         self._client_stopped = True
         self._reauth_requested = False
+        self._uses_lan = uses_lan
 
     async def async_start(self) -> None:
         """Start listening to charger updates."""
@@ -59,6 +63,7 @@ class BesenCoordinator(DataUpdateCoordinator[BesenData]):
                 self._remove_listener = None
             with suppress(Exception):
                 await self._async_stop_client()
+            await self._async_release_listener()
             raise
         self.async_set_updated_data(self.client.state)
 
@@ -70,7 +75,16 @@ class BesenCoordinator(DataUpdateCoordinator[BesenData]):
         if self._remove_listener is not None:
             self._remove_listener()
             self._remove_listener = None
-        await self._async_stop_client()
+        try:
+            await self._async_stop_client()
+        finally:
+            await self._async_release_listener()
+
+    async def _async_release_listener(self) -> None:
+        """Release this entry's listener exactly once."""
+        if self._uses_lan:
+            self._uses_lan = False
+            await async_release_udp_hub(self.hass)
 
     @override
     async def _async_update_data(self) -> BesenData:

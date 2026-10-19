@@ -1,12 +1,19 @@
 """Config flow for Besen."""
 
+import asyncio
 from collections.abc import Mapping
 import logging
 from typing import TYPE_CHECKING, Any, override
 
 from besen.client import BesenClient
 from besen.const import DEFAULT_PIN
-from besen.exceptions import CannotConnect, InvalidAuth, NoConnectablePath
+from besen.exceptions import (
+    CannotConnect,
+    CommandFailed,
+    InvalidAuth,
+    NoConnectablePath,
+)
+from besen.udp import BesenUdpClient
 import probatio
 
 from homeassistant import config_entries
@@ -15,11 +22,18 @@ from homeassistant.components.bluetooth import (
     BluetoothServiceInfoBleak,
     async_discovered_service_info,
 )
-from homeassistant.const import CONF_ADDRESS, CONF_NAME, CONF_PIN
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import selector
+from homeassistant.const import CONF_ADDRESS, CONF_HOST, CONF_NAME, CONF_PIN
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr, selector
 
-from .const import DOMAIN
+from .const import (
+    CONF_SERIAL,
+    CONF_TRANSPORT,
+    DOMAIN,
+    TRANSPORT_BLUETOOTH,
+    TRANSPORT_LAN,
+)
+from .lan import async_acquire_udp_hub, async_release_udp_hub
 
 if TYPE_CHECKING:
     from bleak.backends.device import BLEDevice
@@ -27,6 +41,33 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigFlowResult
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class _AlreadyConfigured(Exception):
+    """The charger already has an entry using another transport."""
+
+
+def _serial_is_configured(
+    hass: HomeAssistant, serial: str, *, address: str | None = None
+) -> bool:
+    """Match serial identity even when a charger is currently unloaded."""
+    registry = dr.async_get(hass)
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.data.get(CONF_ADDRESS) == address:
+            continue
+        runtime = getattr(entry, "runtime_data", None)
+        if (
+            entry.data.get(CONF_SERIAL) == serial
+            or (runtime and runtime.client.state.info.serial == serial)
+            or any(
+                (DOMAIN, serial) in device.identifiers or device.serial_number == serial
+                for device in dr.async_entries_for_config_entry(
+                    registry, entry.entry_id
+                )
+            )
+        ):
+            return True
+    return False
 
 
 def _normalize_address(address: str) -> str:
@@ -57,13 +98,14 @@ def _user_schema(
 
     return probatio.Schema(
         {
-            probatio.Required(CONF_ADDRESS): probatio.In(
+            probatio.Optional(CONF_ADDRESS): probatio.In(
                 {
                     address: discovery.name or address
                     for address, discovery in discoveries.items()
                 }
             ),
             probatio.Required(CONF_PIN, default=DEFAULT_PIN): PIN_SCHEMA,
+            probatio.Optional(CONF_HOST): str,
         }
     )
 
@@ -103,6 +145,8 @@ async def _async_validate_input(
     try:
         await client.async_start()
         info = client.state.info
+        if info.serial and _serial_is_configured(hass, info.serial, address=address):
+            raise _AlreadyConfigured
         return info.model or name or address
     finally:
         await client.async_stop()
@@ -119,6 +163,11 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovered_address: str | None = None
         self._discovered_name: str | None = None
         self._discovered_devices: dict[str, BluetoothServiceInfoBleak] = {}
+        self._pending_data: dict[str, Any] = {}
+        self._pending_title = "Besen"
+        self._operation_task: asyncio.Task[None] | None = None
+        self._operation_error: str | None = None
+        self._operation_step = "lan"
 
     @override
     async def async_step_bluetooth(
@@ -162,6 +211,8 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     pin=pin,
                     name=self._discovered_name,
                 )
+            except _AlreadyConfigured:
+                return self.async_abort(reason="already_configured")
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
             except NoConnectablePath:
@@ -196,6 +247,14 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         errors: dict[str, str] = {}
         if user_input is not None:
+            if user_input.get(CONF_HOST):
+                return await self.async_step_lan(user_input)
+            if not user_input.get(CONF_ADDRESS):
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=_user_schema(self._discovered_devices),
+                    errors={"base": "choose_connection"},
+                )
             address = user_input[CONF_ADDRESS]
             pin = user_input[CONF_PIN]
             discovery_info = self._discovered_devices[address]
@@ -208,6 +267,8 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     pin=pin,
                     name=discovery_info.name,
                 )
+            except _AlreadyConfigured:
+                return self.async_abort(reason="already_configured")
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
             except NoConnectablePath:
@@ -240,9 +301,6 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     continue
                 self._discovered_devices[address] = discovery_info
 
-        if not self._discovered_devices:
-            return self.async_abort(reason="no_devices_found")
-
         return self.async_show_form(
             step_id="user",
             data_schema=_user_schema(self._discovered_devices),
@@ -266,6 +324,16 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             pin = user_input[CONF_PIN]
+            if entry.data.get(CONF_TRANSPORT) == TRANSPORT_LAN:
+                if len(pin) != 6 or not (pin.isascii() and pin.isdecimal()):
+                    return self.async_show_form(
+                        step_id="reauth_confirm",
+                        data_schema=REAUTH_SCHEMA,
+                        errors={"base": "invalid_auth"},
+                    )
+                self._pending_data = {**entry.data, CONF_PIN: pin}
+                self._operation_step = "reauth_confirm"
+                return await self._start_operation(TRANSPORT_LAN)
             try:
                 await _async_validate_input(
                     self.hass,
@@ -294,3 +362,228 @@ class BesenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=REAUTH_SCHEMA,
             errors=errors,
         )
+
+    def _current_entry(self) -> config_entries.ConfigEntry | None:
+        """Return the existing entry without changing its identity."""
+        if self.source == config_entries.SOURCE_RECONFIGURE:
+            return self._get_reconfigure_entry()
+        if self.source == config_entries.SOURCE_REAUTH:
+            return self._get_reauth_entry()
+        return None
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Offer an explicit connection choice for the existing charger."""
+        entry = self._get_reconfigure_entry()
+        await self.async_set_unique_id(entry.unique_id or entry.data[CONF_ADDRESS])
+        self._pending_data = dict(entry.data)
+        self._pending_title = entry.title
+        if (runtime := getattr(entry, "runtime_data", None)) and (
+            serial := runtime.client.state.info.serial
+        ):
+            self._pending_data[CONF_SERIAL] = serial
+        elif CONF_SERIAL not in self._pending_data:
+            for device in dr.async_entries_for_config_entry(
+                dr.async_get(self.hass), entry.entry_id
+            ):
+                if device.serial_number:
+                    self._pending_data[CONF_SERIAL] = device.serial_number
+                    break
+        return self.async_show_menu(
+            step_id="reconfigure", menu_options=["lan", "use_bluetooth"]
+        )
+
+    async def async_step_lan(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Validate a LAN host and PIN before selecting LAN."""
+        if user_input is not None:
+            if self._current_entry() and not self._pending_data.get(CONF_SERIAL):
+                return self._lan_form({"base": "identity_unknown"})
+            pin = user_input[CONF_PIN]
+            if len(pin) != 6 or not (pin.isascii() and pin.isdecimal()):
+                return self._lan_form({"base": "invalid_auth"})
+            if not user_input[CONF_HOST].strip():
+                return self._lan_form({"base": "cannot_connect"})
+            self._pending_data.update(
+                {CONF_HOST: user_input[CONF_HOST].strip(), CONF_PIN: pin}
+            )
+            self._operation_step = "lan"
+            return await self._start_operation(TRANSPORT_LAN)
+        return self._lan_form({})
+
+    def _lan_form(self, errors: dict[str, str]) -> ConfigFlowResult:
+        return self.async_show_form(
+            step_id="lan",
+            data_schema=probatio.Schema(
+                {
+                    probatio.Required(
+                        CONF_HOST, default=self._pending_data.get(CONF_HOST, "")
+                    ): str,
+                    probatio.Required(
+                        CONF_PIN, default=self._pending_data.get(CONF_PIN, DEFAULT_PIN)
+                    ): PIN_SCHEMA,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_use_bluetooth(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Validate Bluetooth before switching the saved connection."""
+        if self._pending_data.get(CONF_ADDRESS, "").startswith("lan:"):
+            return self.async_abort(reason="bluetooth_address_unknown")
+        if user_input is not None:
+            self._pending_data[CONF_PIN] = user_input[CONF_PIN]
+            self._operation_step = "use_bluetooth"
+            return await self._start_operation(TRANSPORT_BLUETOOTH)
+        return self.async_show_form(step_id="use_bluetooth", data_schema=REAUTH_SCHEMA)
+
+    async def _start_operation(self, transport: str) -> ConfigFlowResult:
+        self._operation_error = None
+        self._operation_task = self.hass.async_create_task(
+            self._test_connection(transport),
+            "Besen connection setup",
+            eager_start=False,
+        )
+        return await self.async_step_connect()
+
+    async def async_step_connect(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show progress while the charger sends verified status."""
+        assert self._operation_task is not None
+        if not self._operation_task.done():
+            return self.async_show_progress(
+                step_id="connect",
+                progress_action="connecting",
+                progress_task=self._operation_task,
+            )
+        return self.async_show_progress_done(next_step_id="connection_done")
+
+    async def _test_connection(self, transport: str) -> None:
+        """Release the old session, test the candidate and restore the old one.
+
+        Saving and reloading happen only in the final flow step. Cancellation
+        and failed validation leave the original entry and connection selected.
+        """
+        entry = self._current_entry()
+        runtime = getattr(entry, "runtime_data", None) if entry else None
+        current = runtime.client if runtime else None
+        candidate: BesenUdpClient | None = None
+        stopped = False
+        acquired_hub = False
+        try:
+            if current:
+                stopped = True
+                await current.async_stop()
+                if current.is_connected:
+                    raise CannotConnect("Previous connection was not released")
+            address = self._pending_data.get(CONF_ADDRESS, "lan:pending")
+            if transport == TRANSPORT_LAN:
+                hub = await async_acquire_udp_hub(self.hass)
+                acquired_hub = True
+                candidate = BesenUdpClient(
+                    address=address,
+                    pin=self._pending_data[CONF_PIN],
+                    hub=hub,
+                    logger=_LOGGER,
+                    host=self._pending_data[CONF_HOST],
+                    serial=self._pending_data.get(CONF_SERIAL),
+                    sync_clock=False,
+                )
+                await candidate.async_start()
+                await candidate.async_wait_for_status(timeout=10)
+                await candidate.async_wait_for_heartbeat()
+                serial = candidate.state.info.serial
+                if not serial:
+                    raise CannotConnect("Charger did not report its identity")
+                if (
+                    expected_serial := self._pending_data.get(CONF_SERIAL)
+                ) and serial != expected_serial:
+                    self._operation_error = "wrong_device"
+                    return
+                if _serial_is_configured(self.hass, serial, address=address):
+                    raise _AlreadyConfigured
+                self._pending_data[CONF_HOST] = candidate.host
+                self._pending_data[CONF_SERIAL] = serial
+                if address == "lan:pending":
+                    self._pending_data[CONF_ADDRESS] = f"lan:{serial}"
+                    self._pending_title = candidate.state.info.model or "Besen"
+                    self._pending_data[CONF_NAME] = self._pending_title
+            else:
+                await _async_validate_input(
+                    self.hass,
+                    address=address,
+                    pin=self._pending_data[CONF_PIN],
+                    name=self._pending_data.get(CONF_NAME),
+                )
+            self._pending_data[CONF_TRANSPORT] = transport
+        except _AlreadyConfigured:
+            self._operation_error = "already_configured"
+        except InvalidAuth:
+            self._operation_error = "invalid_auth"
+        except CannotConnect, CommandFailed, TimeoutError:
+            self._operation_error = "cannot_connect"
+        except Exception as err:
+            _LOGGER.error(
+                "Unexpected Besen connection setup error: %s", type(err).__name__
+            )
+            self._operation_error = "unknown"
+        finally:
+            try:
+                if candidate:
+                    await candidate.async_stop()
+            finally:
+                try:
+                    if acquired_hub:
+                        await async_release_udp_hub(self.hass)
+                finally:
+                    if current and stopped:
+                        try:
+                            await current.async_start()
+                        except CannotConnect, InvalidAuth:
+                            assert entry is not None
+                            self.hass.async_create_task(
+                                self.hass.config_entries.async_reload(entry.entry_id),
+                                "Restore Besen connection",
+                            )
+
+    async def async_step_connection_done(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Commit only verified connection data, preserving entry identity."""
+        if self._operation_error == "already_configured":
+            return self.async_abort(reason="already_configured")
+        if self._operation_error:
+            errors = {"base": self._operation_error}
+            if self._operation_step in ("reauth_confirm", "use_bluetooth"):
+                return self.async_show_form(
+                    step_id=self._operation_step,
+                    data_schema=REAUTH_SCHEMA,
+                    errors=errors,
+                )
+            return self._lan_form(errors)
+        if entry := self._current_entry():
+            return self.async_update_reload_and_abort(
+                entry,
+                data=self._pending_data,
+                reload_even_if_entry_is_unchanged=True,
+            )
+        serial = self._pending_data[CONF_SERIAL]
+        if _serial_is_configured(self.hass, serial):
+            return self.async_abort(reason="already_configured")
+        await self.async_set_unique_id(self._pending_data[CONF_ADDRESS])
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(
+            title=self._pending_title, data=self._pending_data
+        )
+
+    @callback
+    @override
+    def async_remove(self) -> None:
+        """Cancel validation and restore the saved connection on cancellation."""
+        if self._operation_task and not self._operation_task.done():
+            self._operation_task.cancel()
