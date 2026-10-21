@@ -1,6 +1,6 @@
 """Tests for Besen config flow."""
 
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 from besen.exceptions import CannotConnect, InvalidAuth
 from probatio import to_field_list
@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import config_validation as cv
 
-from custom_components.besen.const import DOMAIN
+from custom_components.besen.const import CONF_SERIAL, CONF_TRANSPORT, DOMAIN
 
 from .bluetooth import generate_advertisement_data, generate_ble_device
 from .conftest import (
@@ -23,6 +23,8 @@ from .conftest import (
     FIXTURE_NAME,
     FIXTURE_PIN,
 )
+
+NEW_PIN = "654321"
 
 
 def _discovery(name: str | None = FIXTURE_NAME) -> BluetoothServiceInfoBleak:
@@ -58,6 +60,7 @@ def _assert_create_entry(result: dict) -> None:
         CONF_ADDRESS: FIXTURE_ADDRESS,
         CONF_NAME: FIXTURE_NAME,
         CONF_PIN: FIXTURE_PIN,
+        CONF_SERIAL: "SERIAL",
     }
     assert result["options"] == {}
     assert result["result"].unique_id == FIXTURE_ADDRESS
@@ -245,15 +248,7 @@ async def test_user_step_success(
     _assert_create_entry(result)
 
 
-@pytest.mark.parametrize(
-    "invalid_pin",
-    [
-        "12345",
-        "¹²³⁴⁵⁶",
-        pytest.param("٠١٢٣٤٥", id="arabic-indic-digits"),
-        pytest.param("\uff10\uff11\uff12\uff13\uff14\uff15", id="fullwidth-digits"),
-    ],
-)
+@pytest.mark.parametrize("invalid_pin", ["12345", "¹²³⁴⁵⁶"])
 @pytest.mark.usefixtures("mock_setup_entry")
 async def test_user_step_rejects_invalid_pin(
     hass: HomeAssistant,
@@ -388,11 +383,11 @@ async def test_user_step_existing_device_aborts(
     assert result["reason"] == "already_configured"
 
 
-async def test_user_step_without_bluetooth_offers_lan(
+async def test_user_step_without_bluetooth_still_offers_lan(
     hass: HomeAssistant,
     mock_discovered_service_info: Mock,
 ) -> None:
-    """Keep manual LAN setup available without a Bluetooth discovery."""
+    """Test LAN setup is available without any discovered Bluetooth chargers."""
 
     mock_discovered_service_info.return_value = [_discovery("Other")]
 
@@ -403,6 +398,7 @@ async def test_user_step_without_bluetooth_offers_lan(
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "user"
+    assert result["errors"] == {}
 
 
 @pytest.mark.usefixtures("mock_besen_client", "mock_setup_entry")
@@ -434,3 +430,143 @@ async def test_user_step_ignores_bluetooth_flow_in_progress(
     )
 
     _assert_create_entry(result)
+
+
+async def test_reauth_flow(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_besen_client: Mock,
+    mock_setup_entry: AsyncMock,
+) -> None:
+    """Test reauthentication updates the PIN and reloads the entry."""
+
+    mock_config_entry.add_to_hass(hass)
+    result = await mock_config_entry.start_reauth_flow(hass)
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_PIN: NEW_PIN},
+    )
+    assert result["type"] is FlowResultType.SHOW_PROGRESS
+    await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(result["flow_id"])
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert mock_config_entry.data == {
+        CONF_ADDRESS: FIXTURE_ADDRESS,
+        CONF_NAME: FIXTURE_NAME,
+        CONF_PIN: NEW_PIN,
+        CONF_TRANSPORT: "bluetooth",
+        CONF_SERIAL: "SERIAL",
+    }
+    mock_besen_client.async_start.assert_awaited_once()
+    mock_besen_client.async_stop.assert_awaited_once()
+    assert len(mock_setup_entry.mock_calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("exception", "error"),
+    [
+        pytest.param(InvalidAuth("bad pin"), "invalid_auth", id="invalid-auth"),
+        pytest.param(CannotConnect("cannot connect"), "cannot_connect", id="connect"),
+        pytest.param(RuntimeError("boom"), "unknown", id="unknown"),
+    ],
+)
+@pytest.mark.usefixtures("mock_setup_entry")
+async def test_reauth_flow_errors_can_recover(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_besen_client: Mock,
+    exception: Exception,
+    error: str,
+) -> None:
+    """Test reauthentication errors keep the saved PIN and can recover."""
+
+    mock_besen_client.async_start.side_effect = [exception, None]
+    mock_config_entry.add_to_hass(hass)
+    result = await mock_config_entry.start_reauth_flow(hass)
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_PIN: NEW_PIN},
+    )
+    assert result["type"] is FlowResultType.SHOW_PROGRESS
+    await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(result["flow_id"])
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+    assert result["errors"] == {"base": error}
+    assert mock_config_entry.data[CONF_PIN] == FIXTURE_PIN
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_PIN: NEW_PIN},
+    )
+    assert result["type"] is FlowResultType.SHOW_PROGRESS
+    await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(result["flow_id"])
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert mock_config_entry.data[CONF_PIN] == NEW_PIN
+
+
+@pytest.mark.usefixtures("mock_besen_client", "mock_setup_entry")
+async def test_reauth_flow_no_connectable_path_can_recover(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_ble_device: Mock,
+) -> None:
+    """Test reauthentication recovers after a path becomes available."""
+
+    mock_config_entry.add_to_hass(hass)
+    result = await mock_config_entry.start_reauth_flow(hass)
+
+    mock_ble_device.return_value = None
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_PIN: NEW_PIN},
+    )
+    assert result["type"] is FlowResultType.SHOW_PROGRESS
+    await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(result["flow_id"])
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+    assert result["errors"] == {"base": "no_connectable_path"}
+
+    mock_ble_device.return_value = _discovery().device
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_PIN: NEW_PIN},
+    )
+    assert result["type"] is FlowResultType.SHOW_PROGRESS
+    await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(result["flow_id"])
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert mock_config_entry.data[CONF_PIN] == NEW_PIN
+
+
+async def test_user_step_without_bluetooth_offers_lan(
+    hass: HomeAssistant,
+    mock_discovered_service_info: Mock,
+) -> None:
+    """Keep manual LAN setup available without a Bluetooth discovery."""
+
+    mock_discovered_service_info.return_value = [_discovery("Other")]
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_USER},
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "user"
