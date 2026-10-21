@@ -15,7 +15,7 @@
             "unknown": "Unexpected error",
             "choose_connection": "Select a Bluetooth charger or enter its LAN address.",
             "identity_unknown": "Connect this charger over Bluetooth once so Home Assistant can verify its serial before switching to LAN.",
-            "wrong_device": "This is a different charger. Enter the address of the charger already configured in this entry."
+            "wrong_device": "This is a different charger. Check that you are connecting to the charger already configured in this entry."
         },
         "flow_title": "{name}",
         "step": {
@@ -47,7 +47,8 @@
                 },
                 "data_description": {
                     "address": "The discovered Besen charger to set up.",
-                    "pin": "The 6-digit PIN configured on the charger."
+                    "pin": "The 6-digit PIN configured on the charger.",
+                    "host": "The IP address or hostname of a charger already connected to Wi-Fi. Leave empty to use Bluetooth."
                 },
                 "description": "Select a discovered Bluetooth charger or enter the IP address or hostname of a charger already connected to your LAN. Enter its 6-digit PIN.",
                 "title": "Set up Besen"
@@ -66,6 +67,10 @@
                 "data": {
                     "host": "Charger address",
                     "pin": "Charger PIN"
+                },
+                "data_description": {
+                    "host": "The IP address or hostname of this charger on your local network.",
+                    "pin": "The 6-digit PIN configured on the charger."
                 }
             },
             "use_bluetooth": {
@@ -73,6 +78,9 @@
                 "description": "Enter the charger PIN to check Bluetooth before switching the connection.",
                 "data": {
                     "pin": "Charger PIN"
+                },
+                "data_description": {
+                    "pin": "The 6-digit PIN configured on the charger."
                 }
             }
         },

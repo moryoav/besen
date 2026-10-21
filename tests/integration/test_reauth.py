@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
 
-from custom_components.besen.const import DOMAIN
+from custom_components.besen.const import CONF_SERIAL, CONF_TRANSPORT, DOMAIN
 
 from . import publish_besen_state
 from .conftest import (
@@ -26,13 +26,13 @@ from .conftest import (
 
 
 @pytest.mark.parametrize("pin", ["654321", FIXTURE_PIN])
-async def test_reauth_updates_only_pin(
+async def test_reauth_preserves_settings_and_saves_legacy_identity(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_besen_client: Mock,
     pin: str,
 ) -> None:
-    """Validate the stored charger and reload even when the PIN is unchanged."""
+    """Preserve settings, learn the legacy serial and reload an unchanged PIN."""
 
     mock_config_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(
@@ -73,10 +73,18 @@ async def test_reauth_updates_only_pin(
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {CONF_PIN: pin}
         )
+        assert result["type"] is FlowResultType.SHOW_PROGRESS
+        await hass.async_block_till_done()
+        result = await hass.config_entries.flow.async_configure(result["flow_id"])
         await hass.async_block_till_done()
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
-    assert mock_config_entry.data == {**original_data, CONF_PIN: pin}
+    assert mock_config_entry.data == {
+        **original_data,
+        CONF_PIN: pin,
+        CONF_SERIAL: mock_besen_client.state.info.serial,
+        CONF_TRANSPORT: "bluetooth",
+    }
     assert mock_config_entry.options == original_options
     assert mock_config_entry.title == "Garage"
     assert mock_config_entry.unique_id == FIXTURE_ADDRESS
@@ -122,6 +130,9 @@ async def test_reauth_validation_error_and_retry(
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {CONF_PIN: "654321"}
         )
+        assert result["type"] is FlowResultType.SHOW_PROGRESS
+        await hass.async_block_till_done()
+        result = await hass.config_entries.flow.async_configure(result["flow_id"])
         assert result["type"] is FlowResultType.FORM
         assert result["step_id"] == "reauth_confirm"
         assert result["errors"] == {"base": error}
@@ -132,6 +143,9 @@ async def test_reauth_validation_error_and_retry(
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {CONF_PIN: "654321"}
         )
+        assert result["type"] is FlowResultType.SHOW_PROGRESS
+        await hass.async_block_till_done()
+        result = await hass.config_entries.flow.async_configure(result["flow_id"])
         await hass.async_block_till_done()
     assert result["reason"] == "reauth_successful"
     assert mock_config_entry.data[CONF_PIN] == "654321"
@@ -185,6 +199,9 @@ async def test_reauth_without_connectable_path(
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_PIN: "654321"}
     )
+    assert result["type"] is FlowResultType.SHOW_PROGRESS
+    await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(result["flow_id"])
     assert result["errors"] == {"base": "no_connectable_path"}
     assert mock_config_entry.data[CONF_PIN] == FIXTURE_PIN
     mock_besen_client.async_start.assert_not_awaited()
@@ -271,6 +288,9 @@ async def test_runtime_reauth_preserves_entities_after_reload(
     result = await hass.config_entries.flow.async_configure(
         flows[0]["flow_id"], {CONF_PIN: "654321"}
     )
+    assert result["type"] is FlowResultType.SHOW_PROGRESS
+    await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(result["flow_id"])
     await hass.async_block_till_done()
     assert result["reason"] == "reauth_successful"
     assert mock_config_entry.state is ConfigEntryState.LOADED

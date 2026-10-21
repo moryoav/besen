@@ -30,16 +30,16 @@
       "reason": "Select the configured LAN or Bluetooth transport and share the UDP listener."
     },
     "config_flow.py": {
-      "sha256": "b1c5b3285c6abe974dcb01585732a20fc03f045ea40c53da77f4e45c774f1f66",
-      "reason": "Verify charger identity after connection cleanup and defer recovery reloads until the active configuration flow is removed."
+      "sha256": "1de1fd4d92073d032dcaf795fd6db589c5fddc0c93914c0431dad252b8fd3318",
+      "reason": "Verify saved charger identity and serialize setup, cancellation, cleanup and recovery across overlapping connection flows."
     },
     "const.py": {
       "sha256": "fb662a8fe17ef6dd21a82f58ac37cae2254abfde78d2ae78ac2518cbf134456e",
       "reason": "Name the LAN transport and charger serial configuration fields."
     },
     "coordinator.py": {
-      "sha256": "7ad8befd0a09a63089f6f90034bcae25cb4e94961b8dbcdbbddde7c20f6d1827",
-      "reason": "Serialize validation pause and restoration with coordinator shutdown, and let Home Assistant deduplicate reauthentication."
+      "sha256": "ab5e14db867e98568bc76c34e1e99a2524b7a98e787ec3e9b6f4394b6c75912e",
+      "reason": "Verify charger identity and uniqueness at startup, retain unfinished cleanup and serialize connection ownership across coordinator changes."
     },
     "diagnostics.py": {
       "sha256": "358cf4371121d69170e028805b841426b4dea8083b8e8cab4550bfcc9764143c",
@@ -62,8 +62,8 @@
       "reason": "Keep the StateType import available in the supported stable Home Assistant baseline."
     },
     "strings.json": {
-      "sha256": "2c257670658bb225a10b745b6cfba9424107c0194df7bcbad0a760a65e6c82b1",
-      "reason": "Describe manual LAN setup, verified transport switching and the shared charger PIN."
+      "sha256": "80e5b68cda3727ca1ce5b0791465570a22be86e98588275868ba85b2b13d726a",
+      "reason": "Describe manual LAN setup, verified transport switching and transport-neutral identity errors."
     }
   },
   "development_additions": {

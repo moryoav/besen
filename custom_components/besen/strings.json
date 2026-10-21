@@ -2,22 +2,22 @@
   "config": {
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
-      "no_devices_found": "[%key:common::config_flow::abort::no_devices_found%]",
-      "not_supported": "This Bluetooth device is not a supported Besen charger.",
-      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]",
-      "reconfigure_successful": "Connection settings updated.",
-      "bluetooth_address_unknown": "This charger was added through LAN and has no saved Bluetooth address."
+      "bluetooth_address_unknown": "This charger was added through LAN and has no saved Bluetooth address.",
+      "not_supported": "This Bluetooth device is not a supported Besen charger."
     },
     "error": {
       "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "choose_connection": "Select a Bluetooth charger or enter its LAN address.",
+      "identity_unknown": "Connect this charger over Bluetooth once so Home Assistant can verify its serial before switching to LAN.",
       "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
       "no_connectable_path": "No connectable Bluetooth path is available for this charger.",
       "unknown": "[%key:common::config_flow::error::unknown%]",
-      "choose_connection": "Select a Bluetooth charger or enter its LAN address.",
-      "identity_unknown": "Connect this charger over Bluetooth once so Home Assistant can verify its serial before switching to LAN.",
-      "wrong_device": "This is a different charger. Enter the address of the charger already configured in this entry."
+      "wrong_device": "This is a different charger. Check that you are connecting to the charger already configured in this entry."
     },
     "flow_title": "{name}",
+    "progress": {
+      "connecting": "Connecting to the charger and checking its live status. The connection choice is saved only after verification."
+    },
     "step": {
       "bluetooth_confirm": {
         "data": {
@@ -29,6 +29,18 @@
         "description": "Enter the 6-digit Bluetooth PIN for this charger.",
         "title": "Set up Besen"
       },
+      "lan": {
+        "data": {
+          "host": "Charger address",
+          "pin": "Charger PIN"
+        },
+        "data_description": {
+          "host": "The IP address or hostname of this charger on your local network.",
+          "pin": "The 6-digit PIN configured on the charger."
+        },
+        "description": "Enter this charger's IP address or hostname and its 6-digit PIN. Allow UDP port 28376 to Home Assistant and UDP traffic to the charger's port, normally 7248. The charger must already be connected to Wi-Fi. Only the selected connection is used.",
+        "title": "Use LAN"
+      },
       "reauth_confirm": {
         "data": {
           "pin": "[%key:common::config_flow::data::pin%]"
@@ -39,45 +51,38 @@
         "description": "The charger rejected its saved PIN. Enter its current 6-digit PIN. Network disconnections do not require reauthentication.",
         "title": "Reauthenticate Besen"
       },
-      "user": {
-        "data": {
-          "address": "[%key:common::config_flow::data::device%]",
-          "pin": "[%key:common::config_flow::data::pin%]",
-          "host": "LAN address (optional)"
-        },
-        "data_description": {
-          "address": "The discovered Besen charger to set up.",
-          "pin": "The 6-digit PIN configured on the charger."
-        },
-        "description": "Select a discovered Bluetooth charger or enter the IP address or hostname of a charger already connected to your LAN. Enter its 6-digit PIN.",
-        "title": "Set up Besen"
-      },
       "reconfigure": {
-        "title": "Charger connection",
         "description": "Choose the connection for this charger. Home Assistant checks the new connection before saving it. Existing entities and history are kept.",
         "menu_options": {
           "lan": "Use LAN",
           "use_bluetooth": "Use Bluetooth"
-        }
-      },
-      "lan": {
-        "title": "Use LAN",
-        "description": "Enter this charger's IP address or hostname and its 6-digit PIN. Allow UDP port 28376 to Home Assistant and UDP traffic to the charger's port, normally 7248. The charger must already be connected to Wi-Fi. Only the selected connection is used.",
-        "data": {
-          "host": "Charger address",
-          "pin": "Charger PIN"
-        }
+        },
+        "title": "Charger connection"
       },
       "use_bluetooth": {
-        "title": "Use Bluetooth",
-        "description": "Enter the charger PIN to check Bluetooth before switching the connection.",
         "data": {
           "pin": "Charger PIN"
-        }
+        },
+        "data_description": {
+          "pin": "The 6-digit PIN configured on the charger."
+        },
+        "description": "Enter the charger PIN to check Bluetooth before switching the connection.",
+        "title": "Use Bluetooth"
+      },
+      "user": {
+        "data": {
+          "address": "[%key:common::config_flow::data::device%]",
+          "host": "LAN address (optional)",
+          "pin": "[%key:common::config_flow::data::pin%]"
+        },
+        "data_description": {
+          "address": "The discovered Besen charger to set up.",
+          "host": "The IP address or hostname of a charger already connected to Wi-Fi. Leave empty to use Bluetooth.",
+          "pin": "The 6-digit PIN configured on the charger."
+        },
+        "description": "Select a discovered Bluetooth charger or enter the IP address or hostname of a charger already connected to your LAN. Enter its 6-digit PIN.",
+        "title": "Set up Besen"
       }
-    },
-    "progress": {
-      "connecting": "Connecting to the charger and checking its live status. The connection choice is saved only after verification."
     }
   },
   "entity": {

@@ -8,6 +8,24 @@ The `besen` Python library was developed in this repository until 0.4.8. Its ent
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-22 (HACS integration)
+
+### Fixed
+
+- Prevented overlapping Reconfigure, PIN recovery and entry reloads from opening competing connections or restarting a retired connection.
+- Retained unfinished connection cleanup and retried it before another connection starts. Preserved the previous settings after failed or cancelled validation and deferred recovery until open connection forms finish.
+- Verified saved or registered charger identity during Bluetooth recovery and startup. Rejected duplicate charger serials before saving or loading an entry, and saved the serial learned from legacy Bluetooth entries.
+- Cleared provisional identity when initial LAN setup retries another address and clarified identity errors for either connection type.
+
+### Updating
+
+Update through HACS and restart Home Assistant. Keep the existing Besen entry and connection settings.
+
+### Validation
+
+- Passed 235 tests and 93 snapshots on Home Assistant 2026.9.2, with 100% line coverage and 99.42% combined line and branch coverage. Passed the integration suite on Home Assistant 2026.10.2, Ruff, mypy, Core alignment and Hassfest with package validation.
+- Matched the production backport to reviewed Core commit `70818ac86811`, while preserving HACS migration support and regression coverage.
+
 ## [0.6.0] - 2026-10-19 (HACS integration)
 
 ### Added
