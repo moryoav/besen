@@ -30,16 +30,16 @@
       "reason": "Select the configured LAN or Bluetooth transport and share the UDP listener."
     },
     "config_flow.py": {
-      "sha256": "2b80213c0983e94737d1fb7fcd38c2b22e4faa130fc5d5c4b05ca00d9bfc328d",
-      "reason": "Add verified LAN host/PIN setup and transport reconfiguration, with cancellation recovery and duplicate identity checks."
+      "sha256": "b1c5b3285c6abe974dcb01585732a20fc03f045ea40c53da77f4e45c774f1f66",
+      "reason": "Verify charger identity after connection cleanup and defer recovery reloads until the active configuration flow is removed."
     },
     "const.py": {
       "sha256": "fb662a8fe17ef6dd21a82f58ac37cae2254abfde78d2ae78ac2518cbf134456e",
       "reason": "Name the LAN transport and charger serial configuration fields."
     },
     "coordinator.py": {
-      "sha256": "9d8f42c3ba3474828b0f80c0627cee277c38d2d940e06bede6128ad1ac900313",
-      "reason": "Release the shared UDP listener when the LAN entry stops or fails setup."
+      "sha256": "7ad8befd0a09a63089f6f90034bcae25cb4e94961b8dbcdbbddde7c20f6d1827",
+      "reason": "Serialize validation pause and restoration with coordinator shutdown, and let Home Assistant deduplicate reauthentication."
     },
     "diagnostics.py": {
       "sha256": "358cf4371121d69170e028805b841426b4dea8083b8e8cab4550bfcc9764143c",

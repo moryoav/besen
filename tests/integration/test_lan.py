@@ -9,7 +9,9 @@ from besen.udp import BesenUdpClient
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.config_entries import (
+    SOURCE_BLUETOOTH,
     SOURCE_REAUTH,
     SOURCE_RECONFIGURE,
     SOURCE_USER,
@@ -27,6 +29,7 @@ from custom_components.besen.lan import async_acquire_udp_hub, async_release_udp
 
 from . import publish_besen_state
 from .conftest import (
+    FAKE_SERVICE_INFO,
     FIXTURE_ADDRESS,
     FIXTURE_PIN,
     _configure_client_mock,
@@ -47,6 +50,8 @@ def hub() -> Generator[Mock]:
 
 @pytest.fixture
 def udp_client() -> Generator[Mock]:
+    """Prepare udp client."""
+
     client = Mock(spec=BesenUdpClient)
     _configure_client_mock(client)
     client.state = charger_state().updated(
@@ -59,7 +64,8 @@ def udp_client() -> Generator[Mock]:
     with (
         patch("custom_components.besen.BesenUdpClient", return_value=client),
         patch(
-            "custom_components.besen.config_flow.BesenUdpClient", return_value=client
+            "custom_components.besen.config_flow.BesenUdpClient",
+            return_value=client,
         ),
     ):
         yield client
@@ -68,6 +74,8 @@ def udp_client() -> Generator[Mock]:
 def flow_for(
     hass: HomeAssistant, entry: MockConfigEntry | None = None
 ) -> BesenConfigFlow:
+    """Prepare flow for."""
+
     flow = BesenConfigFlow()
     flow.hass = hass
     flow.context = {"source": SOURCE_USER}
@@ -82,6 +90,8 @@ def flow_for(
 async def test_reconfigure_offers_only_connection_selection(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry
 ) -> None:
+    """Test that reconfigure offers only connection selection."""
+
     mock_config_entry.add_to_hass(hass)
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
@@ -101,13 +111,16 @@ async def test_lan_switch_preserves_entry_and_entities(
     mock_config_entry: MockConfigEntry,
     mock_besen_client: Mock,
     udp_client: Mock,
+    entity_registry: er.EntityRegistry,
 ) -> None:
+    """Test that lan switch preserves entry and entities."""
+
     mock_besen_client.is_connected = False
     mock_besen_client.state = udp_client.state
     mock_config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.async_block_till_done()
-    registry = er.async_get(hass)
+    registry = entity_registry
     before = {
         entry.entity_id: (entry.unique_id, entry.device_id)
         for entry in er.async_entries_for_config_entry(
@@ -147,10 +160,10 @@ async def test_lan_switch_preserves_entry_and_entities(
 @pytest.mark.parametrize(
     ("error", "expected"),
     [
-        (CannotConnect("offline"), "cannot_connect"),
-        (InvalidAuth("rejected"), "invalid_auth"),
-        (TimeoutError(), "cannot_connect"),
-        (RuntimeError("private-pin"), "unknown"),
+        pytest.param(CannotConnect("offline"), "cannot_connect", id="offline"),
+        pytest.param(InvalidAuth("rejected"), "invalid_auth", id="invalid-auth"),
+        pytest.param(TimeoutError(), "cannot_connect", id="timeout"),
+        pytest.param(RuntimeError("private-pin"), "unknown", id="unexpected-error"),
     ],
 )
 async def test_failed_lan_validation_restores_connection(
@@ -162,9 +175,13 @@ async def test_failed_lan_validation_restores_connection(
     expected: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """Test that failed lan validation restores connection."""
+
     mock_besen_client.is_connected = False
-    mock_config_entry.runtime_data = Mock(client=mock_besen_client)
     flow = flow_for(hass, mock_config_entry)
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    mock_besen_client.async_start.reset_mock()
     original = dict(mock_config_entry.data)
     udp_client.async_start.side_effect = error
     await flow.async_step_lan({CONF_HOST: HOST, CONF_PIN: FIXTURE_PIN})
@@ -183,12 +200,18 @@ async def test_cancel_reconfigure_restores_original_transport(
     mock_besen_client: Mock,
     udp_client: Mock,
 ) -> None:
+    """Test that cancel reconfigure restores original transport."""
+
     mock_besen_client.is_connected = False
-    mock_config_entry.runtime_data = Mock(client=mock_besen_client)
     flow = flow_for(hass, mock_config_entry)
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    mock_besen_client.async_start.reset_mock()
     started = asyncio.Event()
 
     async def connect() -> None:
+        """Prepare connect."""
+
         started.set()
         await asyncio.Event().wait()
 
@@ -203,10 +226,18 @@ async def test_cancel_reconfigure_restores_original_transport(
     assert CONF_TRANSPORT not in mock_config_entry.data
 
 
-@pytest.mark.parametrize("pin", ["12345", "\uff11\uff12\uff13\uff14\uff15\uff16"])
+@pytest.mark.parametrize(
+    "pin",
+    [
+        pytest.param("12345", id="too-short"),
+        pytest.param("\uff11\uff12\uff13\uff14\uff15\uff16", id="non-ascii"),
+    ],
+)
 async def test_invalid_lan_pin_never_connects(
     hass: HomeAssistant, udp_client: Mock, pin: str
 ) -> None:
+    """Test that invalid lan pin never connects."""
+
     flow = flow_for(hass)
     result = await flow.async_step_lan({CONF_HOST: HOST, CONF_PIN: pin})
     assert result["errors"] == {"base": "invalid_auth"}
@@ -216,16 +247,18 @@ async def test_invalid_lan_pin_never_connects(
 async def test_empty_lan_host_never_connects(
     hass: HomeAssistant, udp_client: Mock
 ) -> None:
+    """Test that empty lan host never connects."""
+
     flow = flow_for(hass)
     result = await flow.async_step_lan({CONF_HOST: "  ", CONF_PIN: FIXTURE_PIN})
     assert result["errors"] == {"base": "cannot_connect"}
     udp_client.async_start.assert_not_awaited()
 
 
-@pytest.mark.usefixtures("mock_setup_entry")
-async def test_new_lan_entry_uses_serial_identity(
-    hass: HomeAssistant, udp_client: Mock
-) -> None:
+@pytest.mark.usefixtures("mock_setup_entry", "udp_client")
+async def test_new_lan_entry_uses_serial_identity(hass: HomeAssistant) -> None:
+    """Test that new lan entry uses serial identity."""
+
     flow = flow_for(hass)
     await flow.async_step_user({CONF_HOST: HOST, CONF_PIN: FIXTURE_PIN})
     await flow._operation_task
@@ -242,11 +275,16 @@ async def test_new_lan_entry_uses_serial_identity(
     }
 
 
+@pytest.mark.usefixtures("udp_client")
 async def test_duplicate_lan_serial_is_rejected(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry, udp_client: Mock
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    device_registry: dr.DeviceRegistry,
 ) -> None:
+    """Test that duplicate lan serial is rejected."""
+
     mock_config_entry.add_to_hass(hass)
-    dr.async_get(hass).async_get_or_create(
+    device_registry.async_get_or_create(
         config_entry_id=mock_config_entry.entry_id, identifiers={(DOMAIN, SERIAL)}
     )
     flow = flow_for(hass)
@@ -260,6 +298,8 @@ async def test_duplicate_lan_serial_is_rejected(
 async def test_no_identity_cannot_be_saved(
     hass: HomeAssistant, udp_client: Mock
 ) -> None:
+    """Test that no identity cannot be saved."""
+
     udp_client.state = udp_client.state.updated(
         info=udp_client.state.info.updated(serial=None)
     )
@@ -274,6 +314,8 @@ async def test_no_identity_cannot_be_saved(
 async def test_lan_only_entry_does_not_offer_unknown_bluetooth(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry
 ) -> None:
+    """Test that lan only entry does not offer unknown bluetooth."""
+
     flow = flow_for(hass, mock_config_entry)
     flow._pending_data[CONF_ADDRESS] = f"lan:{SERIAL}"
     assert (await flow.async_step_use_bluetooth())[
@@ -281,9 +323,12 @@ async def test_lan_only_entry_does_not_offer_unknown_bluetooth(
     ] == "bluetooth_address_unknown"
 
 
+@pytest.mark.usefixtures("mock_besen_client")
 async def test_bluetooth_switch_validates_before_saving(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry, mock_besen_client: Mock
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
 ) -> None:
+    """Test that bluetooth switch validates before saving."""
+
     flow = flow_for(hass, mock_config_entry)
     assert (await flow.async_step_use_bluetooth())["type"] is FlowResultType.FORM
     await flow.async_step_use_bluetooth({CONF_PIN: FIXTURE_PIN})
@@ -294,9 +339,12 @@ async def test_bluetooth_switch_validates_before_saving(
     assert mock_config_entry.data[CONF_TRANSPORT] == "bluetooth"
 
 
+@pytest.mark.usefixtures("udp_client")
 async def test_lan_reauth_updates_only_after_verification(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry, udp_client: Mock
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
 ) -> None:
+    """Test that lan reauth updates only after verification."""
+
     mock_config_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(
         mock_config_entry,
@@ -321,6 +369,8 @@ async def test_lan_reauth_updates_only_after_verification(
 async def test_listener_shared_until_final_user_releases(
     hass: HomeAssistant, hub: Mock
 ) -> None:
+    """Test that listener shared until final user releases."""
+
     first, second = await asyncio.gather(
         async_acquire_udp_hub(hass), async_acquire_udp_hub(hass)
     )
@@ -339,6 +389,8 @@ async def test_runtime_lan_ignores_missing_bluetooth(
     mock_besen_client: Mock,
     hub: Mock,
 ) -> None:
+    """Test that runtime lan ignores missing bluetooth."""
+
     mock_ble_device.return_value = None
     mock_config_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(
@@ -364,6 +416,8 @@ async def test_listener_bind_error_retries_entry(
     udp_client: Mock,
     hub: Mock,
 ) -> None:
+    """Test that listener bind error retries entry."""
+
     mock_config_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(
         mock_config_entry,
@@ -387,6 +441,8 @@ async def test_runtime_failed_login_releases_listener(
     udp_client: Mock,
     hub: Mock,
 ) -> None:
+    """Test that runtime failed login releases listener."""
+
     mock_config_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(
         mock_config_entry,
@@ -405,10 +461,14 @@ async def test_runtime_failed_login_releases_listener(
 
 
 async def test_reconfigure_recovers_identity_from_unloaded_device(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    device_registry: dr.DeviceRegistry,
 ) -> None:
+    """Test that reconfigure recovers identity from unloaded device."""
+
     mock_config_entry.add_to_hass(hass)
-    dr.async_get(hass).async_get_or_create(
+    device_registry.async_get_or_create(
         config_entry_id=mock_config_entry.entry_id,
         connections={(dr.CONNECTION_BLUETOOTH, FIXTURE_ADDRESS)},
         serial_number=SERIAL,
@@ -426,6 +486,8 @@ async def test_reconfigure_recovers_identity_from_unloaded_device(
 async def test_reconfigure_rejects_unknown_identity(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry, udp_client: Mock
 ) -> None:
+    """Test that reconfigure rejects unknown identity."""
+
     flow = flow_for(hass, mock_config_entry)
     del flow._pending_data[CONF_SERIAL]
     result = await flow.async_step_lan({CONF_HOST: HOST, CONF_PIN: FIXTURE_PIN})
@@ -436,6 +498,8 @@ async def test_reconfigure_rejects_unknown_identity(
 async def test_reconfigure_rejects_different_charger(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry, udp_client: Mock
 ) -> None:
+    """Test that reconfigure rejects different charger."""
+
     flow = flow_for(hass, mock_config_entry)
     udp_client.state = udp_client.state.updated(
         info=udp_client.state.info.updated(serial="1122334455667788")
@@ -455,9 +519,13 @@ async def test_old_connection_must_release_before_lan(
     mock_besen_client: Mock,
     udp_client: Mock,
 ) -> None:
+    """Test that old connection must release before lan."""
+
     mock_besen_client.is_connected = True
-    mock_config_entry.runtime_data = Mock(client=mock_besen_client)
     flow = flow_for(hass, mock_config_entry)
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    mock_besen_client.async_start.reset_mock()
     await flow.async_step_lan({CONF_HOST: HOST, CONF_PIN: FIXTURE_PIN})
     await flow._operation_task
     assert (await flow.async_step_connection_done())["errors"] == {
@@ -466,19 +534,26 @@ async def test_old_connection_must_release_before_lan(
     udp_client.async_start.assert_not_awaited()
 
 
+@pytest.mark.usefixtures("udp_client")
 async def test_failed_restoration_requests_saved_entry_reload(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_besen_client: Mock,
-    udp_client: Mock,
 ) -> None:
+    """Test that failed restoration requests saved entry reload."""
+
     mock_besen_client.is_connected = False
-    mock_besen_client.async_start.side_effect = CannotConnect("restore failed")
-    mock_config_entry.runtime_data = Mock(client=mock_besen_client)
     flow = flow_for(hass, mock_config_entry)
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    mock_besen_client.async_start.reset_mock()
+    mock_besen_client.async_start.side_effect = CannotConnect("restore failed")
     with patch.object(hass.config_entries, "async_reload", new=AsyncMock()) as reload:
         await flow.async_step_lan({CONF_HOST: HOST, CONF_PIN: FIXTURE_PIN})
         await flow._operation_task
+        await hass.async_block_till_done()
+        reload.assert_not_awaited()
+        flow.async_remove()
         await hass.async_block_till_done()
     reload.assert_awaited_once_with(mock_config_entry.entry_id)
 
@@ -486,6 +561,8 @@ async def test_failed_restoration_requests_saved_entry_reload(
 async def test_failed_lan_reauth_keeps_pin(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry, udp_client: Mock
 ) -> None:
+    """Test that failed lan reauth keeps pin."""
+
     mock_config_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(
         mock_config_entry,
@@ -511,6 +588,8 @@ async def test_failed_lan_reauth_keeps_pin(
 async def test_invalid_lan_reauth_pin_never_connects(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry, udp_client: Mock
 ) -> None:
+    """Test that invalid lan reauth pin never connects."""
+
     mock_config_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(
         mock_config_entry, data={**mock_config_entry.data, CONF_TRANSPORT: "lan"}
@@ -524,6 +603,8 @@ async def test_invalid_lan_reauth_pin_never_connects(
 
 
 async def test_user_must_choose_a_connection(hass: HomeAssistant) -> None:
+    """Test that user must choose a connection."""
+
     flow = flow_for(hass)
     result = await flow.async_step_user({CONF_PIN: FIXTURE_PIN})
     assert result["errors"] == {"base": "choose_connection"}
@@ -532,11 +613,18 @@ async def test_user_must_choose_a_connection(hass: HomeAssistant) -> None:
 async def test_second_reconfigure_is_blocked(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry
 ) -> None:
+    """Test that second reconfigure is blocked."""
+
     mock_config_entry.add_to_hass(hass)
-    context = {"source": SOURCE_RECONFIGURE, "entry_id": mock_config_entry.entry_id}
-    first = await hass.config_entries.flow.async_init(DOMAIN, context=context)
+    first = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_RECONFIGURE, "entry_id": mock_config_entry.entry_id},
+    )
     assert first["type"] is FlowResultType.MENU
-    second = await hass.config_entries.flow.async_init(DOMAIN, context=context)
+    second = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_RECONFIGURE, "entry_id": mock_config_entry.entry_id},
+    )
     assert second["type"] is FlowResultType.ABORT
     assert second["reason"] == "already_in_progress"
 
@@ -546,7 +634,10 @@ async def test_lan_only_identity_updates_controls_and_diagnostics(
     mock_config_entry: MockConfigEntry,
     udp_client: Mock,
     mock_besen_client: Mock,
+    device_registry: dr.DeviceRegistry,
 ) -> None:
+    """Test that lan only identity updates controls and diagnostics."""
+
     address = f"lan:{SERIAL}"
     udp_client.address = address
     udp_client.state = udp_client.state.updated(
@@ -567,7 +658,7 @@ async def test_lan_only_identity_updates_controls_and_diagnostics(
     assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.async_block_till_done()
     (device,) = dr.async_entries_for_config_entry(
-        dr.async_get(hass), mock_config_entry.entry_id
+        device_registry, mock_config_entry.entry_id
     )
     assert device.connections == set()
     assert device.identifiers == {(DOMAIN, SERIAL)}
@@ -589,3 +680,475 @@ async def test_lan_only_identity_updates_controls_and_diagnostics(
     assert diagnostics["entry_data"][CONF_HOST] == "**REDACTED**"
     assert HOST not in repr(diagnostics)
     assert FIXTURE_PIN not in repr(diagnostics)
+
+
+@pytest.mark.parametrize(
+    ("source", "discovery", "user_input"),
+    [
+        pytest.param(
+            SOURCE_BLUETOOTH,
+            FAKE_SERVICE_INFO,
+            {CONF_PIN: FIXTURE_PIN},
+            id="bluetooth-discovery",
+        ),
+        pytest.param(
+            SOURCE_USER,
+            None,
+            {CONF_ADDRESS: FIXTURE_ADDRESS, CONF_PIN: FIXTURE_PIN},
+            id="manual-bluetooth",
+        ),
+    ],
+)
+async def test_bluetooth_rejects_charger_already_added_over_lan(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_besen_client: Mock,
+    source: str,
+    discovery: BluetoothServiceInfoBleak | None,
+    user_input: dict[str, str],
+) -> None:
+    """Reject a Bluetooth duplicate of an existing LAN charger by serial."""
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        unique_id=f"lan:{SERIAL}",
+        data={
+            **mock_config_entry.data,
+            CONF_ADDRESS: f"lan:{SERIAL}",
+            CONF_SERIAL: SERIAL,
+            CONF_TRANSPORT: "lan",
+            CONF_HOST: HOST,
+        },
+    )
+    mock_besen_client.state = mock_besen_client.state.updated(
+        info=mock_besen_client.state.info.updated(serial=SERIAL)
+    )
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": source}, data=discovery
+    )
+    assert result["type"] is FlowResultType.FORM
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert len(hass.config_entries.async_entries(DOMAIN)) == 1
+
+
+@pytest.mark.usefixtures("udp_client")
+async def test_duplicate_added_before_lan_validation_is_saved(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Recheck serial identity when another flow adds the charger first."""
+    flow = flow_for(hass)
+    await flow.async_step_lan({CONF_HOST: HOST, CONF_PIN: FIXTURE_PIN})
+    await flow._operation_task
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        data={**mock_config_entry.data, CONF_SERIAL: SERIAL},
+    )
+    result = await flow.async_step_connection_done()
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+
+
+@pytest.mark.usefixtures("udp_client", "mock_setup_entry")
+async def test_lan_setup_flow_checks_connection_before_creating_entry(
+    hass: HomeAssistant,
+) -> None:
+    """Exercise the complete LAN setup flow through Home Assistant."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: HOST, CONF_PIN: FIXTURE_PIN}
+    )
+    assert result["type"] is FlowResultType.SHOW_PROGRESS
+    await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(result["flow_id"])
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_ADDRESS] == f"lan:{SERIAL}"
+    assert result["data"][CONF_TRANSPORT] == "lan"
+
+
+async def test_bluetooth_reconfigure_rejects_another_configured_charger(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_besen_client: Mock,
+) -> None:
+    """Reject a Bluetooth target whose serial belongs to another entry."""
+    other_entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=f"lan:{SERIAL}",
+        data={
+            CONF_ADDRESS: f"lan:{SERIAL}",
+            CONF_SERIAL: SERIAL,
+            CONF_HOST: HOST,
+            CONF_PIN: FIXTURE_PIN,
+            CONF_TRANSPORT: "lan",
+        },
+    )
+    other_entry.add_to_hass(hass)
+    mock_besen_client.state = mock_besen_client.state.updated(
+        info=mock_besen_client.state.info.updated(serial=SERIAL)
+    )
+    flow = flow_for(hass, mock_config_entry)
+    original = dict(mock_config_entry.data)
+    await flow.async_step_use_bluetooth({CONF_PIN: FIXTURE_PIN})
+    await flow._operation_task
+    result = await flow.async_step_connection_done()
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert mock_config_entry.data == original
+
+
+@pytest.mark.parametrize(
+    ("source", "discovery", "user_input"),
+    [
+        pytest.param(
+            SOURCE_BLUETOOTH, FAKE_SERVICE_INFO, {CONF_PIN: FIXTURE_PIN}, id="discovery"
+        ),
+        pytest.param(
+            SOURCE_USER,
+            None,
+            {CONF_ADDRESS: FIXTURE_ADDRESS, CONF_PIN: FIXTURE_PIN},
+            id="manual",
+        ),
+    ],
+)
+@pytest.mark.usefixtures("mock_setup_entry")
+async def test_bluetooth_serial_checked_after_validation_client_stops(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_besen_client: Mock,
+    source: str,
+    discovery: BluetoothServiceInfoBleak | None,
+    user_input: dict[str, str],
+) -> None:
+    """Reject a LAN duplicate added while Bluetooth cleanup is suspended."""
+    stopping = asyncio.Event()
+    finish_stop = asyncio.Event()
+
+    async def stop() -> None:
+        """Wait until another flow has saved the charger."""
+        stopping.set()
+        await finish_stop.wait()
+
+    mock_besen_client.state = mock_besen_client.state.updated(
+        info=mock_besen_client.state.info.updated(serial=SERIAL)
+    )
+    mock_besen_client.async_stop.side_effect = stop
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": source}, data=discovery
+    )
+    validation = hass.async_create_task(
+        hass.config_entries.flow.async_configure(result["flow_id"], user_input)
+    )
+    await stopping.wait()
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        unique_id=f"lan:{SERIAL}",
+        data={
+            **mock_config_entry.data,
+            CONF_ADDRESS: f"lan:{SERIAL}",
+            CONF_SERIAL: SERIAL,
+            CONF_TRANSPORT: "lan",
+            CONF_HOST: HOST,
+        },
+    )
+    finish_stop.set()
+    result = await validation
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert len(hass.config_entries.async_entries(DOMAIN)) == 1
+
+
+async def test_validation_does_not_restart_an_unloaded_coordinator(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_besen_client: Mock,
+    udp_client: Mock,
+) -> None:
+    """Do not resurrect a captured client after its entry has unloaded."""
+    validating = asyncio.Event()
+    finish_validation = asyncio.Event()
+
+    async def wait_for_status(*, timeout: int) -> None:
+        """Hold the candidate until the old coordinator has shut down."""
+        validating.set()
+        await finish_validation.wait()
+
+    mock_besen_client.is_connected = False
+    mock_besen_client.state = udp_client.state
+    flow = flow_for(hass, mock_config_entry)
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    udp_client.async_wait_for_status.side_effect = wait_for_status
+    await flow.async_step_lan({CONF_HOST: HOST, CONF_PIN: FIXTURE_PIN})
+    await validating.wait()
+    assert await hass.config_entries.async_unload(mock_config_entry.entry_id)
+    finish_validation.set()
+    await flow._operation_task
+    assert mock_config_entry.state is ConfigEntryState.NOT_LOADED
+    mock_besen_client.async_start.assert_awaited_once()
+    mock_besen_client.add_listener.return_value.assert_called_once_with()
+
+
+async def test_shutdown_waits_for_connection_restoration(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_besen_client: Mock,
+    udp_client: Mock,
+) -> None:
+    """Finish an in-flight restart before shutdown performs its final stop."""
+    restoring = asyncio.Event()
+    finish_restore = asyncio.Event()
+    shutdown_started = asyncio.Event()
+    events: list[str] = []
+
+    async def restore() -> None:
+        """Hold the original client's restart until teardown begins."""
+        restoring.set()
+        await finish_restore.wait()
+        events.append("restored")
+
+    async def stop() -> None:
+        """Record the stop order relative to the blocked restart."""
+        events.append("stopped")
+
+    mock_besen_client.is_connected = False
+    mock_besen_client.state = udp_client.state
+    flow = flow_for(hass, mock_config_entry)
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    mock_besen_client.async_start.side_effect = restore
+    mock_besen_client.async_stop.side_effect = stop
+    mock_besen_client.add_listener.return_value.side_effect = shutdown_started.set
+    await flow.async_step_lan({CONF_HOST: HOST, CONF_PIN: FIXTURE_PIN})
+    await restoring.wait()
+    unloading = hass.async_create_task(
+        hass.config_entries.async_unload(mock_config_entry.entry_id)
+    )
+    await shutdown_started.wait()
+    finish_restore.set()
+    await flow._operation_task
+    assert await unloading
+    assert events == ["stopped", "restored", "stopped"]
+    assert mock_config_entry.state is ConfigEntryState.NOT_LOADED
+
+
+@pytest.mark.parametrize(
+    "restore_error",
+    [
+        pytest.param(InvalidAuth("old PIN rejected"), id="invalid-auth"),
+        pytest.param(CannotConnect("restore failed"), id="cannot-connect"),
+    ],
+)
+async def test_loaded_lan_reauth_survives_old_connection_restore_failure(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    udp_client: Mock,
+    restore_error: Exception,
+) -> None:
+    """Save a verified new PIN before any reload can abort reauthentication."""
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        data={
+            **mock_config_entry.data,
+            CONF_TRANSPORT: "lan",
+            CONF_HOST: HOST,
+            CONF_SERIAL: SERIAL,
+        },
+    )
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    current = udp_client
+    candidate = Mock(spec=BesenUdpClient)
+    _configure_client_mock(candidate)
+    candidate.state = current.state
+    candidate.host = HOST
+    candidate.is_connected = False
+    current.async_start.side_effect = restore_error
+    with (
+        patch(
+            "custom_components.besen.config_flow.BesenUdpClient",
+            return_value=candidate,
+        ),
+        patch("custom_components.besen.BesenUdpClient", return_value=candidate),
+    ):
+        result = await mock_config_entry.start_reauth_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_PIN: "654321"}
+        )
+        assert result["type"] is FlowResultType.SHOW_PROGRESS
+        await hass.async_block_till_done()
+        assert [
+            flow["flow_id"] for flow in hass.config_entries.flow.async_progress()
+        ] == [result["flow_id"]]
+        assert mock_config_entry.data[CONF_PIN] == FIXTURE_PIN
+        result = await hass.config_entries.flow.async_configure(result["flow_id"])
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reauth_successful"
+        await hass.async_block_till_done()
+    assert mock_config_entry.data[CONF_PIN] == "654321"
+    assert mock_config_entry.state is ConfigEntryState.LOADED
+    assert mock_config_entry.runtime_data.client is candidate
+
+
+async def test_pin_rejection_can_start_reauth_after_reconfigure_is_cancelled(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_besen_client: Mock,
+) -> None:
+    """Allow reauthentication after a reconfiguration suppressed an earlier request."""
+    mock_config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    reconfigure = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_RECONFIGURE, "entry_id": mock_config_entry.entry_id},
+    )
+    rejected = charger_state(available=False, authenticated=False).updated(
+        auth_failed=True
+    )
+    publish_besen_state(mock_besen_client, rejected)
+    await hass.async_block_till_done()
+    assert list(mock_config_entry.async_get_active_flows(hass, {SOURCE_REAUTH})) == []
+    hass.config_entries.flow.async_abort(reconfigure["flow_id"])
+    publish_besen_state(mock_besen_client, rejected)
+    await hass.async_block_till_done()
+    assert (
+        len(list(mock_config_entry.async_get_active_flows(hass, {SOURCE_REAUTH}))) == 1
+    )
+    publish_besen_state(mock_besen_client, rejected)
+    await hass.async_block_till_done()
+    assert (
+        len(list(mock_config_entry.async_get_active_flows(hass, {SOURCE_REAUTH}))) == 1
+    )
+
+
+async def test_shutdown_coordinator_refuses_new_connection_validation(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_besen_client: Mock,
+) -> None:
+    """Reject a pause request queued after its coordinator has been unloaded."""
+    mock_config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = mock_config_entry.runtime_data
+    assert await hass.config_entries.async_unload(mock_config_entry.entry_id)
+    with pytest.raises(CannotConnect, match="unloading"):
+        await coordinator.async_pause_connection()
+    mock_besen_client.async_start.assert_awaited_once()
+
+
+async def test_cancelled_reauth_reloads_only_after_restoration_finishes(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    udp_client: Mock,
+) -> None:
+    """Complete cancellation cleanup before retrying the saved connection."""
+    validating = asyncio.Event()
+    reloaded = asyncio.Event()
+
+    async def wait_for_status(*, timeout: int) -> None:
+        """Wait for cancellation while the candidate owns the connection."""
+        validating.set()
+        await asyncio.Event().wait()
+
+    async def reload_entry(entry_id: str) -> bool:
+        """Check that a recovery reload cannot abort its own active flow."""
+        assert entry_id == mock_config_entry.entry_id
+        assert (
+            list(mock_config_entry.async_get_active_flows(hass, {SOURCE_REAUTH})) == []
+        )
+        assert mock_config_entry.data[CONF_PIN] == FIXTURE_PIN
+        reloaded.set()
+        return True
+
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        data={
+            **mock_config_entry.data,
+            CONF_TRANSPORT: "lan",
+            CONF_HOST: HOST,
+            CONF_SERIAL: SERIAL,
+        },
+    )
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    candidate = Mock(spec=BesenUdpClient)
+    _configure_client_mock(candidate)
+    candidate.state = udp_client.state
+    candidate.host = HOST
+    candidate.async_wait_for_status.side_effect = wait_for_status
+    udp_client.async_start.side_effect = InvalidAuth("old PIN rejected")
+    with (
+        patch(
+            "custom_components.besen.config_flow.BesenUdpClient",
+            return_value=candidate,
+        ),
+        patch.object(
+            hass.config_entries, "async_reload", side_effect=reload_entry
+        ) as reload,
+    ):
+        result = await mock_config_entry.start_reauth_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_PIN: "654321"}
+        )
+        await validating.wait()
+        reload.assert_not_awaited()
+        hass.config_entries.flow.async_abort(result["flow_id"])
+        await reloaded.wait()
+        await hass.async_block_till_done()
+        reload.assert_awaited_once_with(mock_config_entry.entry_id)
+    candidate.async_stop.assert_awaited_once()
+    assert mock_config_entry.data[CONF_PIN] == FIXTURE_PIN
+
+
+async def test_deferred_recovery_does_not_reload_an_unloaded_entry(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    udp_client: Mock,
+) -> None:
+    """Discard a deferred retry when the user unloads the entry first."""
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        data={
+            **mock_config_entry.data,
+            CONF_TRANSPORT: "lan",
+            CONF_HOST: HOST,
+            CONF_SERIAL: SERIAL,
+        },
+    )
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    candidate = Mock(spec=BesenUdpClient)
+    _configure_client_mock(candidate)
+    candidate.state = udp_client.state
+    candidate.host = HOST
+    udp_client.async_start.side_effect = InvalidAuth("old PIN rejected")
+    with (
+        patch(
+            "custom_components.besen.config_flow.BesenUdpClient",
+            return_value=candidate,
+        ),
+        patch.object(hass.config_entries, "async_reload", new=AsyncMock()) as reload,
+    ):
+        result = await mock_config_entry.start_reauth_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_PIN: "654321"}
+        )
+        await hass.async_block_till_done()
+        reload.assert_not_awaited()
+        hass.config_entries.flow.async_abort(result["flow_id"])
+        assert await hass.config_entries.async_unload(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+        reload.assert_not_awaited()
+    assert mock_config_entry.state is ConfigEntryState.NOT_LOADED
