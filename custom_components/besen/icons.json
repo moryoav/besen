@@ -4,6 +4,11 @@
       "charging": {
         "default": "mdi:ev-plug-type2"
       }
+    },
+    "sensor": {
+      "last_session_stop_reason": {
+        "default": "mdi:stop-circle-outline"
+      }
     }
   },
   "services": {

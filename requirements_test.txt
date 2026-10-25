@@ -1,5 +1,6 @@
 # Test and lint dependencies. Install the besen library version pinned in
 # custom_components/besen/manifest.json separately; see CONTRIBUTING.md.
+-r requirements_besen_preview.txt
 pytest-homeassistant-custom-component==0.13.365
 aiousbwatcher==1.1.2
 serialx==1.10.0

@@ -106,8 +106,15 @@ The following describes the **integration in this repository**. The built-in ver
 | Session start, session duration | Enabled by default. See [session sensors](docs/session-sensors.md). |
 | Internal temperature, charging status, charging message | Enabled by default. |
 | Session current limit, scheduled start, charging time limit | Disabled by default. |
+| **Last session stop reason** | Enabled by default. Includes the reported starter and stopper, session ID, raw reason code and start/end times as attributes. |
 | External temperature, error state, plug state, output state, current state | Diagnostic entities; disabled by default. |
 | L1 voltage and current; L2/L3 voltage and current on three-phase chargers | Diagnostic entities; disabled by default. |
+
+The **Session start** sensor also exposes the reported session ID and starter.
+Participant values are charger-reported identities, not names of people or
+proof that a person pressed a button. **Last session stop reason** is unknown
+until an end is observed and does not recover sessions missed while disconnected
+or retain history across an integration reload. See [session sensors](docs/session-sensors.md).
 
 Enable optional entities from the charger's device page. Use **Total energy** for cumulative consumption in the Energy dashboard; **Session energy** can reset between charging sessions.
 

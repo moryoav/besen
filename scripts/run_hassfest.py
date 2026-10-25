@@ -122,6 +122,9 @@ def main() -> int:
     """Run every official plugin, including package dependency validation."""
     core = Path("/usr/src/homeassistant")
     integration = Path("/github/workspace/custom_components/besen")
+    # Draft consumers can validate a reviewed companion API before its release.
+    preview = integration.parents[1] / "requirements_besen_preview.txt"
+    preview_arguments = ["--requirement", str(preview)] if preview.is_file() else []
     sys.path.insert(0, str(core))
     validator = importlib.import_module("script.hassfest.requirements")
     with (
@@ -141,6 +144,7 @@ def main() -> int:
                 "--constraint",
                 str(core / "homeassistant/package_constraints.txt"),
                 str(minimum_requirement(integration)),
+                *preview_arguments,
             ],
             check=True,
         )

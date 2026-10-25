@@ -32,7 +32,9 @@
         'session_current_limit': 10,
         'session_duration': 1200,
         'session_energy': 1.2,
+        'session_id': None,
         'session_start': '2026-09-30T20:00:00+00:00',
+        'session_started_by': None,
         'total_energy': 12.3,
       }),
       'config': dict({
@@ -61,6 +63,7 @@
         'software_version': 'SW1',
         'support': None,
       }),
+      'last_session': None,
     }),
     'entry_data': dict({
       'address': '**REDACTED**',
@@ -123,7 +126,9 @@
         'session_current_limit': None,
         'session_duration': None,
         'session_energy': None,
+        'session_id': None,
         'session_start': None,
+        'session_started_by': None,
         'total_energy': None,
       }),
       'config': dict({
@@ -152,6 +157,7 @@
         'software_version': None,
         'support': None,
       }),
+      'last_session': None,
     }),
     'entry_data': dict({
       'address': '**REDACTED**',
