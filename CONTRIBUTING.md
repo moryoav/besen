@@ -90,6 +90,14 @@ python -m pip install $(python -c "import json; print(*json.load(open('custom_co
 To test against a local checkout of the library, install it afterwards with
 `python -m pip install -e ../py-besen`.
 
+The session metadata draft requires the unreleased 0.7.0 API from
+[py-besen PR #9](https://github.com/moryoav/py-besen/pull/9).
+`requirements_besen_preview.txt` pins that exact source commit for tests and
+the ephemeral Hassfest validator. Review and release the library first, then
+remove the preview file and its include from `requirements_test.txt` before
+merging this integration feature. The production manifest requires the PyPI
+version, rather than a development URL.
+
 The repository layout is:
 
 ```text

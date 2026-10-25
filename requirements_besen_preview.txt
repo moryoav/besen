@@ -1,0 +1,3 @@
+# Companion API for this draft. Remove after besen 0.7.0 is available on PyPI.
+# https://github.com/moryoav/py-besen/pull/9
+besen @ https://github.com/moryoav/py-besen/archive/20500d574fa9d0fbaca20bbc98f091fa16922223.tar.gz

@@ -1,12 +1,13 @@
 # Session sensors
 
-The custom integration adds five read-only sensors for the current or most
-recently completed charging session, alongside Session energy. They are created
-for single- and three-phase chargers.
+The custom integration reports timing and limits for the current or most
+recently completed charging session, alongside Session energy and the last
+observed stop reason. These sensors support single- and three-phase chargers.
 
 | Entity name | Native value | Default | Meaning |
 | --- | --- | --- | --- |
-| Session start | Timestamp | Enabled | When the charger started the session. Power delivery can begin later. |
+| Session start | Timestamp | Enabled | When the charger started the session. Power delivery can begin later. Attributes contain `session_id` and `started_by`. |
+| Last session stop reason | Enum | Enabled | Why the last session observed by this client ended. Attributes contain `session_id`, `started_by`, `stopped_by`, `stop_reason_code`, `started_at` and `ended_at`. |
 | Session duration | Seconds | Enabled | Elapsed session time reported by the charger, not a locally running timer. |
 | Session current limit | Amperes | Disabled | Current limit recorded for the session, separate from the **Charging current** setting. |
 | Scheduled start | Timestamp | Disabled | Start time of a scheduled (delayed) session. For an immediate start, the time the start was requested. Unknown unless a schedule is pending or a session is running. |
@@ -29,6 +30,34 @@ timestamps and unset or unlimited limits are unknown instead of dates or large
 numbers. A later report without these values clears them. All sensors become
 unavailable when the connection or authentication is lost. The sensors add no
 polling and no charging commands.
+
+## Session source and stop reason
+
+**Last session stop reason** reports readable states such as **Stopped by
+software**, **Stopped by button**, **Car finished charging** and **Cable
+unplugged**. It is separate from the active session and does not replace Session
+energy or Session duration. An unknown numeric reason is shown as **Unrecognized
+reason**, with the original code in `stop_reason_code`.
+
+The starter and stopper are the identities reported by the firmware. For
+example, `Key` is the button identity and `evseMQTT` is the Python client's
+identity. Another value may identify a phone or card. A reported identity does
+not establish a person's name or prove a physical button press; the stop-reason
+code provides the firmware's explanation. These identifiers are visible locally
+in entity attributes and redacted from diagnostic downloads.
+
+The last reason is unknown until a `0x0009` end record arrives. A new client
+after a reload or restart begins with no last record. The same client retains
+its last observed record during a reconnect, with entities unavailable while
+disconnected. Stops missed while disconnected and the charger's historical
+replay are not recovered. Cached data is the last observed end, not a claim
+that no newer session ended elsewhere.
+
+Two sessions can have the same reason and ID. The record times distinguish
+them. For an automation that needs every observed end, trigger on the sensor's
+`ended_at` attribute changing, rather than only a change of its reason state.
+Times use the existing library timestamp interpretation; phone-app clock
+adjustments can affect how firmware times compare with local wall time.
 
 ## Protocol and validation
 
@@ -62,6 +91,13 @@ Assistant tests add the sensors to the sensor platform snapshots and cover push
 updates and the disabled-by-default sensors. The packet fixtures are synthetic,
 not device captures. Compare the timestamps, elapsed time, current limit, and
 any scheduled start with the vendor app on a real charger.
+
+The companion `besen` 0.7.0 API supplies session identity from live/completed
+reports and the end reason and start/end times from `0x0009`. It filters
+duplicate and interleaved copies using a bounded cache, including record times
+so reused IDs do not hide another session. This integration adds no charger
+commands. Protocol and integration tests use synthetic data checked against
+the native app layout; physical validation of this implementation is pending.
 
 ## Development notes
 

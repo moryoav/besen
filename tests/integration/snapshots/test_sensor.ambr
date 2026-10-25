@@ -662,6 +662,102 @@
     'state': '230.0',
   })
 # ---
+# name: test_sensor_state[single_phase][sensor.garage_last_session_stop_reason-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': dict({
+      <SensorEntityCapabilityAttribute.OPTIONS: 'options'>: list([
+        'reservation_canceled',
+        'reservation_not_started',
+        'stopped_by_software',
+        'stopped_by_card',
+        'vehicle_finished',
+        'cost_limit_reached',
+        'energy_limit_reached',
+        'time_limit_reached',
+        'cable_unplugged',
+        'power_failure',
+        'overcurrent',
+        'short_circuit',
+        'charger_overtemperature',
+        'plug_overtemperature',
+        'emergency_stop',
+        'stopped_by_button',
+        'maximum_duration_reached',
+        'maximum_energy_reached',
+        'maximum_cost_reached',
+        'unrecognized',
+      ]),
+    }),
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'sensor',
+    'entity_category': None,
+    'entity_id': 'sensor.garage_last_session_stop_reason',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Last session stop reason',
+    'options': dict({
+    }),
+    'original_device_class': <SensorDeviceClass.ENUM: 'enum'>,
+    'original_icon': None,
+    'original_name': 'Last session stop reason',
+    'platform': 'besen',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'last_session_stop_reason',
+    'unique_id': 'AA:BB_last_session_stop_reason',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_sensor_state[single_phase][sensor.garage_last_session_stop_reason-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'enum',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Garage Last session stop reason',
+      <SensorEntityCapabilityAttribute.OPTIONS: 'options'>: list([
+        'reservation_canceled',
+        'reservation_not_started',
+        'stopped_by_software',
+        'stopped_by_card',
+        'vehicle_finished',
+        'cost_limit_reached',
+        'energy_limit_reached',
+        'time_limit_reached',
+        'cable_unplugged',
+        'power_failure',
+        'overcurrent',
+        'short_circuit',
+        'charger_overtemperature',
+        'plug_overtemperature',
+        'emergency_stop',
+        'stopped_by_button',
+        'maximum_duration_reached',
+        'maximum_energy_reached',
+        'maximum_cost_reached',
+        'unrecognized',
+      ]),
+    }),
+    'context': <ANY>,
+    'entity_id': 'sensor.garage_last_session_stop_reason',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'unknown',
+  })
+# ---
 # name: test_sensor_state[single_phase][sensor.garage_output_state-entry]
   EntityRegistryEntrySnapshot({
     'aliases': list([
@@ -1045,6 +1141,8 @@
     'attributes': ReadOnlyDict({
       <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'timestamp',
       <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Garage Session start',
+      'session_id': None,
+      'started_by': None,
     }),
     'context': <ANY>,
     'entity_id': 'sensor.garage_session_start',
@@ -2007,6 +2105,102 @@
     'state': '232.0',
   })
 # ---
+# name: test_sensor_state[three_phase][sensor.garage_last_session_stop_reason-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': dict({
+      <SensorEntityCapabilityAttribute.OPTIONS: 'options'>: list([
+        'reservation_canceled',
+        'reservation_not_started',
+        'stopped_by_software',
+        'stopped_by_card',
+        'vehicle_finished',
+        'cost_limit_reached',
+        'energy_limit_reached',
+        'time_limit_reached',
+        'cable_unplugged',
+        'power_failure',
+        'overcurrent',
+        'short_circuit',
+        'charger_overtemperature',
+        'plug_overtemperature',
+        'emergency_stop',
+        'stopped_by_button',
+        'maximum_duration_reached',
+        'maximum_energy_reached',
+        'maximum_cost_reached',
+        'unrecognized',
+      ]),
+    }),
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'sensor',
+    'entity_category': None,
+    'entity_id': 'sensor.garage_last_session_stop_reason',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Last session stop reason',
+    'options': dict({
+    }),
+    'original_device_class': <SensorDeviceClass.ENUM: 'enum'>,
+    'original_icon': None,
+    'original_name': 'Last session stop reason',
+    'platform': 'besen',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'last_session_stop_reason',
+    'unique_id': 'AA:BB_last_session_stop_reason',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_sensor_state[three_phase][sensor.garage_last_session_stop_reason-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'enum',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Garage Last session stop reason',
+      <SensorEntityCapabilityAttribute.OPTIONS: 'options'>: list([
+        'reservation_canceled',
+        'reservation_not_started',
+        'stopped_by_software',
+        'stopped_by_card',
+        'vehicle_finished',
+        'cost_limit_reached',
+        'energy_limit_reached',
+        'time_limit_reached',
+        'cable_unplugged',
+        'power_failure',
+        'overcurrent',
+        'short_circuit',
+        'charger_overtemperature',
+        'plug_overtemperature',
+        'emergency_stop',
+        'stopped_by_button',
+        'maximum_duration_reached',
+        'maximum_energy_reached',
+        'maximum_cost_reached',
+        'unrecognized',
+      ]),
+    }),
+    'context': <ANY>,
+    'entity_id': 'sensor.garage_last_session_stop_reason',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'unknown',
+  })
+# ---
 # name: test_sensor_state[three_phase][sensor.garage_output_state-entry]
   EntityRegistryEntrySnapshot({
     'aliases': list([
@@ -2390,6 +2584,8 @@
     'attributes': ReadOnlyDict({
       <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'timestamp',
       <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Garage Session start',
+      'session_id': None,
+      'started_by': None,
     }),
     'context': <ANY>,
     'entity_id': 'sensor.garage_session_start',

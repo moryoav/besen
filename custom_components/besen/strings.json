@@ -198,6 +198,31 @@
       "l3_voltage": {
         "name": "L3 voltage"
       },
+      "last_session_stop_reason": {
+        "name": "Last session stop reason",
+        "state": {
+          "reservation_canceled": "Reservation canceled",
+          "reservation_not_started": "Reservation did not start",
+          "stopped_by_software": "Stopped by software",
+          "stopped_by_card": "Stopped by card",
+          "vehicle_finished": "Car finished charging",
+          "cost_limit_reached": "Cost limit reached",
+          "energy_limit_reached": "Energy limit reached",
+          "time_limit_reached": "Time limit reached",
+          "cable_unplugged": "Cable unplugged",
+          "power_failure": "Power failure",
+          "overcurrent": "Overcurrent",
+          "short_circuit": "Short circuit",
+          "charger_overtemperature": "Charger overheated",
+          "plug_overtemperature": "Plug overheated",
+          "emergency_stop": "Emergency stop",
+          "stopped_by_button": "Stopped by button",
+          "maximum_duration_reached": "Maximum charging duration reached",
+          "maximum_energy_reached": "Maximum charging energy reached",
+          "maximum_cost_reached": "Maximum charging cost reached",
+          "unrecognized": "Unrecognized reason"
+        }
+      },
       "output_state": {
         "name": "Output state",
         "state": {

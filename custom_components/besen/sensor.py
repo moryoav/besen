@@ -3,7 +3,7 @@
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Final, override
+from typing import Any, Final, override
 
 from besen.models import BesenData
 
@@ -111,12 +111,61 @@ def _enum_state(value: str | None, states: Mapping[str, str]) -> str | None:
     return states.get(value) if value is not None else None
 
 
+SESSION_STOP_REASONS: Final = {
+    0: "reservation_canceled",
+    1: "reservation_not_started",
+    11: "stopped_by_software",
+    12: "stopped_by_card",
+    13: "vehicle_finished",
+    14: "cost_limit_reached",
+    15: "energy_limit_reached",
+    16: "time_limit_reached",
+    17: "cable_unplugged",
+    18: "power_failure",
+    19: "overcurrent",
+    20: "short_circuit",
+    21: "charger_overtemperature",
+    22: "plug_overtemperature",
+    23: "emergency_stop",
+    24: "stopped_by_button",
+    30: "maximum_duration_reached",
+    31: "maximum_energy_reached",
+    32: "maximum_cost_reached",
+}
+
+
+def _session_stop_reason(data: BesenData) -> str | None:
+    """Return a stable enum without discarding an unrecognized reason code."""
+
+    if data.last_session is None or data.last_session.stop_reason_code is None:
+        return None
+    return SESSION_STOP_REASONS.get(data.last_session.stop_reason_code, "unrecognized")
+
+
+def _last_session_attributes(data: BesenData) -> dict[str, Any] | None:
+    """Expose the last observed record separately from the active session."""
+
+    if (record := data.last_session) is None:
+        return None
+    return {
+        "session_id": record.session_id,
+        "started_by": record.started_by,
+        "stopped_by": record.stopped_by,
+        "stop_reason_code": record.stop_reason_code,
+        "started_at": None
+        if record.started_at is None
+        else record.started_at.isoformat(),
+        "ended_at": None if record.ended_at is None else record.ended_at.isoformat(),
+    }
+
+
 @dataclass(frozen=True, kw_only=True)
 class BesenSensorEntityDescription(SensorEntityDescription):
     """Describe a Besen sensor entity."""
 
     value_fn: Callable[[BesenData], StateType | datetime]
     three_phase_only: bool = False
+    attributes_fn: Callable[[BesenData], dict[str, Any] | None] | None = None
 
 
 SENSOR_DESCRIPTIONS: tuple[BesenSensorEntityDescription, ...] = (
@@ -203,6 +252,18 @@ SENSOR_DESCRIPTIONS: tuple[BesenSensorEntityDescription, ...] = (
         translation_key="session_start",
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=lambda data: data.charge.session_start,
+        attributes_fn=lambda data: {
+            "session_id": data.charge.session_id,
+            "started_by": data.charge.session_started_by,
+        },
+    ),
+    BesenSensorEntityDescription(
+        key="last_session_stop_reason",
+        translation_key="last_session_stop_reason",
+        device_class=SensorDeviceClass.ENUM,
+        options=[*SESSION_STOP_REASONS.values(), "unrecognized"],
+        value_fn=_session_stop_reason,
+        attributes_fn=_last_session_attributes,
     ),
     BesenSensorEntityDescription(
         key="session_duration",
@@ -366,3 +427,12 @@ class BesenSensor(BesenEntity, SensorEntity):
         """Return the sensor value."""
 
         return self.entity_description.value_fn(self.coordinator.data)
+
+    @property
+    @override
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return session metadata for descriptions that provide it."""
+
+        if (attributes_fn := self.entity_description.attributes_fn) is None:
+            return None
+        return attributes_fn(self.coordinator.data)

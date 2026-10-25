@@ -8,6 +8,11 @@ The `besen` Python library was developed in this repository until 0.4.8. Its ent
 
 ## [Unreleased]
 
+### Added
+
+- Add an enabled-by-default Last session stop reason sensor with readable states, the reported starter and stopper, session ID, raw reason code and start/end times. Expose the current session's reported starter and ID on Session start.
+- Include the last observed session in diagnostics while redacting all session and participant identifiers. Require the companion `besen` 0.7.0 library; publication and the dependency release are pending review.
+
 ## [0.6.1] - 2026-10-22 (HACS integration)
 
 ### Fixed

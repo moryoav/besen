@@ -41,6 +41,14 @@ LAN changes in 0.6.0 cover transport setup, configuration forms, shared listener
 
 ## Upgrade notes
 
+The session metadata feature pending review requires the companion `besen`
+0.7.0 API. It adds Last session stop reason and session identity attributes,
+redacts participant/session identifiers from diagnostics, and records the
+sensor, diagnostics, icon and translation changes as explicit development
+overrides. The original Core baseline hashes remain intact. The integration PR
+is a draft until the library is reviewed and released; its tests use the
+specific companion library commit. No charging command behavior changes.
+
 Status sensor states and temperature options now use Core's stable lowercase IDs. Automations comparing raw values such as `Start`, `Connected Locked`, or `Fahrenheit` must use the corresponding Core IDs (`start`, `connected_locked`, `fahrenheit`). Existing entity IDs are retained where possible; new installations use Core names and defaults.
 
 Language, device-name editing, brightness, extra sensors, and the old configuration/diagnostics flows are intentionally removed. The old clock option is ignored and removed; Core's default clock synchronization applies.

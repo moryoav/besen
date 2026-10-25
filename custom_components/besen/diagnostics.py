@@ -20,6 +20,10 @@ TO_REDACT = {
     "advertised_name",
     CONF_DEVICE_NAME,
     CONF_SERIAL,
+    "session_id",
+    "session_started_by",
+    "started_by",
+    "stopped_by",
 }
 
 
@@ -41,6 +45,9 @@ async def async_get_config_entry_diagnostics(
             "info": asdict(data.info),
             "config": asdict(data.config),
             "charge": asdict(data.charge),
+            "last_session": None
+            if data.last_session is None
+            else asdict(data.last_session),
             "available": data.available,
             "authenticated": data.authenticated,
             "auth_failed": data.auth_failed,
