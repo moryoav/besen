@@ -8,6 +8,21 @@ The `besen` Python library was developed in this repository until 0.4.8. Its ent
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-05 (HACS integration)
+
+### Fixed
+
+- Fixed startup on Home Assistant 2026.11 by importing `StateType` from `homeassistant.helpers.typing`. The previous import prevented the integration from loading and left Besen entities unavailable.
+
+### Updating
+
+Update through HACS and restart Home Assistant. Keep the existing Besen entry and connection settings.
+
+### Validation
+
+- Passed 235 tests and 93 snapshots on Home Assistant 2026.9.2, plus Ruff, mypy, compilation and Core alignment. Verified that the fixed sensor platform imports successfully on Home Assistant 2026.11.0, where the previous import fails.
+- Physical charger startup validation remains pending.
+
 ## [0.6.1] - 2026-10-22 (HACS integration)
 
 ### Fixed

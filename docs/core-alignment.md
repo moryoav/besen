@@ -2,13 +2,13 @@
 
 ## Baseline
 
-HACS 0.6.1 records Home Assistant Core commit `51489b4f27af336736036bb3d6393cdf08b658e0`, merged in [PR #187382](https://github.com/home-assistant/core/pull/187382), as its baseline. It includes the published `besen` 0.6.1 dependency, scheduled charging, diagnostics and session sensors. LAN runtime and verified transport reconfiguration are documented development differences for this HACS release. `core-baseline.json` pins every accepted file and each difference by checksum.
+HACS 0.6.2 records Home Assistant Core commit `51489b4f27af336736036bb3d6393cdf08b658e0`, merged in [PR #187382](https://github.com/home-assistant/core/pull/187382), as its baseline. It includes the published `besen` 0.6.1 dependency, scheduled charging, diagnostics and session sensors. LAN runtime and verified transport reconfiguration are documented development differences for this HACS release. `core-baseline.json` pins every accepted file and each difference by checksum.
 
 I backported the connection and identity fixes reviewed in [Core PR #187911](https://github.com/home-assistant/core/pull/187911) into HACS 0.6.1. These changes protect overlapping configuration flows, cancellation and cleanup, preserve charger identity during PIN recovery, and reject duplicate chargers at startup. The LAN changes remain documented development differences until the Core PR is merged.
 
 ## Alignment inventory
 
-LAN changes in 0.6.0 cover transport setup, configuration forms, shared listener lifecycle, serial identity and host redaction. They do not include Wi-Fi credential provisioning, automatic Bluetooth fallback or an Active connection sensor. The stable-version `StateType` import and manifest metadata are also recorded explicitly in the inventory. See [LAN setup](lan.md).
+LAN changes in 0.6.0 cover transport setup, configuration forms, shared listener lifecycle, serial identity and host redaction. They do not include Wi-Fi credential provisioning, automatic Bluetooth fallback or an Active connection sensor. Manifest metadata is also recorded explicitly in the inventory. HACS 0.6.2 restores the Core baseline's `StateType` import from `homeassistant.helpers.typing` for Home Assistant 2026.11 compatibility, so `sensor.py` no longer needs an override. See [LAN setup](lan.md).
 
 | Area | Previous HACS 0.4.2 | Core baseline and alignment |
 | --- | --- | --- |
